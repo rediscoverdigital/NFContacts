@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NFC Keychain Contact &amp; Bank Transfer Studio</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --panel: #0f172a;
+      --panel-2: #1e293b;
+      --border: rgba(255, 255, 255, 0.09);
+      --border-focus: #38bdf8;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --emerald: #10b981;
+      --emerald-dark: #059669;
+      --sky: #38bdf8;
+      --indigo: #6366f1;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(circle at 15% 0%, #172554 0%, #070b14 55%);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    /* Top Header */
+    .topbar {
+      border-bottom: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+    .topbar-inner {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #10b981 0%, #0284c7 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      box-shadow: 0 6px 18px rgba(16, 185, 129, 0.3);
+    }
+    .brand-title {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .brand-sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .pill-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 99px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #6ee7b7;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 9px 15px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+    .btn:hover {
+      border-color: rgba(255, 255, 255, 0.25);
+      background: #273549;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      border-color: transparent;
+      color: #ffffff;
+      box-shadow: 0 6px 18px rgba(16, 185, 129, 0.25);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    }
+    .btn-sky {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: #e0f2fe;
+    }
+
+    /* Main Grid Layout */
+    .container {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 1fr 440px;
+      gap: 24px;
+      align-items: start;
+    }
+    @media (max-width: 1080px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Panels */
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+      margin-bottom: 22px;
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.35);
+    }
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .panel-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .step-badge {
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: var(--sky);
+      font-size: 12.5px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Forms */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 640px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .form-group.full {
+      grid-column: 1 / -1;
+    }
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    label span.req {
+      color: var(--emerald);
+      font-size: 11px;
+    }
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"] {
+      background: #090e1a;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 10px;
+      padding: 10px 13px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    input:focus {
+      border-color: var(--sky);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+    }
+    .bank-subpanel {
+      margin-top: 16px;
+      padding: 16px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, rgba(30, 41, 59, 0.65), rgba(15, 23, 42, 0.9));
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+    .bank-subpanel-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--sky);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .checkbox-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 12.5px;
+      color: #cbd5e1;
+      cursor: pointer;
+    }
+    .checkbox-row input {
+      margin-top: 3px;
+      accent-color: var(--emerald);
+    }
+    .save-bar {
+      margin-top: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .toast-msg {
+      font-size: 13px;
+      color: #6ee7b7;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    .toast-msg.visible {
+      opacity: 1;
+    }
+
+    /* NFC Programming Section */
+    .mode-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 720px) {
+      .mode-cards {
+        grid-template-columns: 1fr;
+      }
+    }
+    .mode-card {
+      background: #090e1a;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .mode-card.active {
+      border-color: var(--emerald);
+      background: rgba(16, 185, 129, 0.09);
+    }
+    .mode-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12.5px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .mode-tag {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: rgba(16, 185, 129, 0.2);
+      color: #6ee7b7;
+      font-weight: 700;
+    }
+    .mode-card p {
+      font-size: 11.5px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .payload-box {
+      background: #060911;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .payload-url {
+      font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+      font-size: 12.5px;
+      color: #38bdf8;
+      word-break: break-all;
+    }
+
+    /* NTAG Memory Compatibility Bar */
+    .chip-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .chip-item {
+      background: #090e1a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .chip-item-top {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .chip-status {
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .chip-status.ok {
+      color: #34d399;
+    }
+    .chip-status.warn {
+      color: #fbbf24;
+    }
+    .chip-status.err {
+      color: #fb7185;
+    }
+
+    .nfc-writer-grid {
+      display: grid;
+      grid-template-columns: 1fr 190px;
+      gap: 16px;
+      align-items: center;
+      background: rgba(30, 41, 59, 0.45);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+    }
+    @media (max-width: 640px) {
+      .nfc-writer-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .qr-card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      color: #0f172a;
+    }
+    .qr-card svg {
+      width: 145px;
+      height: 145px;
+      display: block;
+    }
+    .qr-caption {
+      font-size: 10.5px;
+      font-weight: 700;
+      margin-top: 4px;
+      color: #334155;
+    }
+
+    .steps-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: 12.5px;
+      color: #cbd5e1;
+    }
+    .steps-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .steps-list li strong {
+      color: #fff;
+    }
+
+    /* Right Column: Phone Simulator */
+    .simulator-sticky {
+      position: sticky;
+      top: 84px;
+    }
+    .os-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      background: #090e1a;
+      padding: 5px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+    .os-tab {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 6px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .os-tab.active {
+      background: var(--panel-2);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Phone Frame */
+    .phone-frame {
+      width: 100%;
+      max-width: 380px;
+      margin: 0 auto;
+      background: #000000;
+      border: 10px solid #1e293b;
+      border-radius: 42px;
+      overflow: hidden;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65);
+      position: relative;
+      min-height: 620px;
+      display: flex;
+      flex-direction: column;
+    }
+    .phone-notch {
+      width: 110px;
+      height: 22px;
+      background: #000;
+      border-radius: 0 0 14px 14px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 5;
+    }
+
+    /* iOS Native Contact Sheet View */
+    .ios-screen {
+      background: #1c1c1e;
+      color: #ffffff;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .ios-nfc-toast {
+      margin: 8px 14px 10px;
+      background: rgba(44, 44, 46, 0.95);
+      border-radius: 16px;
+      padding: 9px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11.5px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .ios-sheet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      font-size: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .ios-blue {
+      color: #0a84ff;
+      font-weight: 600;
+    }
+    .ios-avatar-zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 14px 12px;
+    }
+    .ios-circle {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1, #0ea5e9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .ios-name {
+      font-size: 19px;
+      font-weight: 700;
+      text-align: center;
+    }
+    .ios-org {
+      font-size: 12.5px;
+      color: #8e8e93;
+      text-align: center;
+    }
+    .ios-group {
+      background: #2c2c2e;
+      margin: 6px 14px;
+      border-radius: 11px;
+      padding: 9px 13px;
+    }
+    .ios-field-label {
+      font-size: 11px;
+      color: #8e8e93;
+      margin-bottom: 2px;
+    }
+    .ios-field-val {
+      font-size: 13.5px;
+      color: #0a84ff;
+      font-weight: 500;
+      word-break: break-all;
+    }
+    .ios-field-val.notes {
+      color: #ffffff;
+      white-space: pre-line;
+      font-family: -apple-system, BlinkMacSystemFont, monospace;
+      font-size: 12.5px;
+      line-height: 1.4;
+      margin-top: 3px;
+    }
+    .ios-bottom-cta {
+      margin: auto 14px 16px;
+      background: #0a84ff;
+      color: #fff;
+      text-align: center;
+      padding: 11px;
+      border-radius: 11px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    /* Android Native Contact Sheet View */
+    .android-screen {
+      background: #121212;
+      color: #e3e3e3;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      font-family: Roboto, -apple-system, sans-serif;
+    }
+    .android-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: #1e1e1e;
+      border-bottom: 1px solid #2c2c2c;
+    }
+    .android-save-pill {
+      background: #a8c7fa;
+      color: #062e6f;
+      padding: 6px 16px;
+      border-radius: 99px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .android-card {
+      background: #1e1e1e;
+      margin: 8px 14px;
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+    .android-label {
+      font-size: 11px;
+      color: #9aa0a6;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .android-val {
+      font-size: 13.5px;
+      color: #e3e3e3;
+      margin-top: 2px;
+      white-space: pre-line;
+    }
+
+    /* vCard Code Block */
+    pre.vcard-code {
+      background: #060911;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+      font-size: 12px;
+      color: #a7f3d0;
+      overflow-x: auto;
+      line-height: 1.45;
+    }
+
+    /* Analytics Mini Strip */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .stat-box {
+      background: #090e1a;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--sky);
+    }
+    .stat-lbl {
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 8.32a7.43 7.43 0 0 1 0 7.36"/><path d="M9.46 6.21a11.76 11.76 0 0 1 0 11.58"/><path d="M12.91 4.1a15.91 15.91 0 0 1 .01 15.8"/><path d="M16.37 2a20.16 20.16 0 0 1 0 20"/></svg>
+        </div>
+        <div>
+          <div class="brand-title">NFC Keychain Contact &amp; Bank Studio</div>
+          <div class="brand-sub">iOS &amp; Android Native Contact + Bank Account Transfer System</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span class="pill-status">
+          <span style="width:7px;height:7px;border-radius:50%;background:#10b981;"></span>
+          iOS &amp; Android Compatible (vCard 3.0 + NDEF URI)
+        </span>
+        <a href="/tap" target="_blank" class="btn btn-sky">
+          Open Client Tap URL (/tap)
+        </a>
+        <a href="/contact.vcf" class="btn btn-primary">
+          Download .vcf Contact
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Left Column: Editor + NFC Programmer + Architecture -->
+    <div>
+      <!-- Step 1: Professional Contact & Bank Details Editor -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="step-badge">1</span>
+            <span>Professional Contact &amp; Bank Account Profile</span>
+          </div>
+          <span style="font-size:12px;color:var(--muted);">Changes update live NFC endpoint immediately</span>
+        </div>
+
+        <form id="profileForm">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Full Name <span class="req">Required</span></label>
+              <input type="text" id="fullName" required placeholder="e.g. Jean-Luc Morel" />
+            </div>
+            <div class="form-group">
+              <label>Phone Number <span class="req">Required</span></label>
+              <input type="tel" id="phone" required placeholder="e.g. +230 5728 9400" />
+            </div>
+            <div class="form-group">
+              <label>Email Address <span class="req">Required</span></label>
+              <input type="email" id="email" required placeholder="e.g. jl.morel@moreladvisory.com" />
+            </div>
+            <div class="form-group">
+              <label>Job Title / Profession</label>
+              <input type="text" id="jobTitle" placeholder="e.g. Senior Consultant" />
+            </div>
+            <div class="form-group full">
+              <label>Company / Organization (Optional)</label>
+              <input type="text" id="company" placeholder="e.g. Morel Advisory Partners" />
+            </div>
+          </div>
+
+          <!-- Bank Details Subpanel -->
+          <div class="bank-subpanel">
+            <div class="bank-subpanel-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>
+              Bank Account Details (Embedded in Contact Card)
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Bank Name <span class="req">Required</span></label>
+                <input type="text" id="bankName" required placeholder="e.g. Mauritius Commercial Bank (MCB)" />
+              </div>
+              <div class="form-group">
+                <label>Account Holder Name <span class="req">Required</span></label>
+                <input type="text" id="accountHolder" required placeholder="e.g. Jean-Luc Morel" />
+              </div>
+              <div class="form-group full">
+                <label>Bank Account Number <span class="req">Required</span></label>
+                <input type="text" id="accountNumber" required placeholder="e.g. 000448291038" />
+              </div>
+            </div>
+
+            <label class="checkbox-row">
+              <input type="checkbox" id="includeCustomBankField" checked />
+              <span>
+                <strong>Dual-Field Contact Storage (Recommended):</strong> Save Bank Details in the universal Contact <code>NOTE</code> field AND as a dedicated labeled <code>Bank (...)</code> field so it is immediately visible and copyable on both iPhone and Android Contacts.
+              </span>
+            </label>
+          </div>
+
+          <div class="save-bar">
+            <span class="toast-msg" id="saveToast">✓ Profile &amp; NFC vCard updated!</span>
+            <button type="submit" class="btn btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Save Profile &amp; Update NFC Payload
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Step 2: NFC Keychain Payload Generator & Hardware Writer -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="step-badge">2</span>
+            <span>Program Your NFC Keychain (iOS &amp; Android Universal)</span>
+          </div>
+          <span style="font-size:12px;color:#38bdf8;">Uses NDEF URI Record for 100% App-Free iPhone + Android Support</span>
+        </div>
+
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+          <strong>Architectural Note:</strong> iPhones ignore raw <code>text/vcard</code> records during background NFC scanning—they only respond natively to <code>https://</code> NDEF URI records. Programming your keychain with the URL below causes both <strong>iOS and Android</strong> to immediately pop up the native <strong>"Add to Contacts"</strong> prompt upon tap!
+        </p>
+
+        <!-- Mode Selector -->
+        <div class="mode-cards">
+          <div class="mode-card active" data-mode="tap_auto" id="modeCardTapAuto">
+            <div class="mode-card-top">
+              <span>Auto-Prompt + Fallback</span>
+              <span class="mode-tag">BEST</span>
+            </div>
+            <p>Immediately opens native "Add to Contacts" sheet + displays fallback card with "Copy Bank Account #".</p>
+          </div>
+
+          <div class="mode-card" data-mode="direct_vcf" id="modeCardDirectVcf">
+            <div class="mode-card-top">
+              <span>Pure .vcf Stream</span>
+              <span class="mode-tag" style="background:rgba(56,189,248,0.2);color:#7dd3fc;">RAW</span>
+            </div>
+            <p>Points directly to <code>/contact.vcf</code> with zero HTML page. Smallest URL for NTAG213 keychains.</p>
+          </div>
+
+          <div class="mode-card" data-mode="stateless" id="modeCardStateless">
+            <div class="mode-card-top">
+              <span>Self-Contained URL</span>
+              <span class="mode-tag" style="background:rgba(245,158,11,0.2);color:#fcd34d;">STATELESS</span>
+            </div>
+            <p>Encodes all contact &amp; bank data inside the URL itself (requires NTAG215/216 tag).</p>
+          </div>
+        </div>
+
+        <!-- Generated NDEF URI Box -->
+        <div class="payload-box">
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:2px;">NDEF URI Record to Write to NFC Keychain:</div>
+            <div class="payload-url" id="nfcPayloadUrl">Loading...</div>
+          </div>
+          <button type="button" class="btn btn-sky" id="btnCopyUrl" style="flex-shrink:0;">
+            Copy NFC URL
+          </button>
+        </div>
+
+        <!-- NTAG Chip Memory Calculator -->
+        <div class="chip-grid">
+          <div class="chip-item">
+            <div class="chip-item-top">
+              <span>NTAG213 Keychain</span>
+              <span style="color:var(--muted);">144 Bytes</span>
+            </div>
+            <div class="chip-status ok" id="chip213Status">✓ Fits Easily</div>
+          </div>
+          <div class="chip-item">
+            <div class="chip-item-top">
+              <span>NTAG215 Keychain</span>
+              <span style="color:var(--muted);">504 Bytes</span>
+            </div>
+            <div class="chip-status ok" id="chip215Status">✓ Fits Easily</div>
+          </div>
+          <div class="chip-item">
+            <div class="chip-item-top">
+              <span>NTAG216 Keychain</span>
+              <span style="color:var(--muted);">888 Bytes</span>
+            </div>
+            <div class="chip-status ok" id="chip216Status">✓ Fits Easily</div>
+          </div>
+        </div>
+
+        <!-- Writer + QR Code -->
+        <div class="nfc-writer-grid">
+          <div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+              <button type="button" class="btn btn-primary" id="btnWebNfcWrite">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 8.32a7.43 7.43 0 0 1 0 7.36"/><path d="M9.46 6.21a11.76 11.76 0 0 1 0 11.58"/><path d="M12.91 4.1a15.91 15.91 0 0 1 .01 15.8"/><path d="M16.37 2a20.16 20.16 0 0 1 0 20"/></svg>
+                Write to NFC Keychain Now (Web NFC)
+              </button>
+              <span id="webNfcStatus" style="font-size:12px;color:var(--muted);align-self:center;"></span>
+            </div>
+
+            <div style="font-size:12.5px;font-weight:700;color:#e2e8f0;margin-top:6px;">
+              How to Program Your Keychain (iPhone or Android):
+            </div>
+            <ul class="steps-list">
+              <li>
+                <span>1.</span>
+                <span><strong>On Android Chrome:</strong> Click <em>"Write to NFC Keychain Now"</em> above and hold your NTAG213/215/216 keychain against the back of your phone.</span>
+              </li>
+              <li>
+                <span>2.</span>
+                <span><strong>On iPhone or Android (via free "NFC Tools" app):</strong> Open <strong>NFC Tools</strong> &rarr; <strong>Write</strong> &rarr; <strong>Add a record</strong> &rarr; <strong>URL / URI</strong> &rarr; Paste the NFC URL above &rarr; Tap <strong>Write</strong> and hold your keychain to the phone.</span>
+              </li>
+              <li>
+                <span>3.</span>
+                <span><strong>Test the Keychain:</strong> Tap the programmed keychain on the top-back of any iPhone (XS or newer) or center-back of any Android phone.</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="qr-card">
+            <div id="qrContainer"></div>
+            <div class="qr-caption">Scan to Test on Phone</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 3: Live vCard 3.0 Code & Tap Analytics -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="step-badge">3</span>
+            <span>Generated RFC 2426 vCard 3.0 Payload &amp; Tap Telemetry</span>
+          </div>
+          <button type="button" class="btn" id="btnCopyVcard" style="padding:5px 11px;font-size:12px;">
+            Copy Raw .vcf
+          </button>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-box">
+            <div class="stat-num" id="statTotal">0</div>
+            <div class="stat-lbl">Total Keychain Taps</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" id="statIos">0</div>
+            <div class="stat-lbl">iOS (iPhone) Taps</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" id="statAndroid">0</div>
+            <div class="stat-lbl">Android Taps</div>
+          </div>
+        </div>
+
+        <pre class="vcard-code" id="vcardPreview">Loading vCard...</pre>
+      </section>
+    </div>
+
+    <!-- Right Column: Interactive Dual-OS Phone Simulator -->
+    <div class="simulator-sticky">
+      <div class="panel" style="padding:18px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <span style="font-size:14px;font-weight:700;">Live Client Phone Tap Preview</span>
+          <span style="font-size:11.5px;color:#34d399;font-weight:600;">● Interactive</span>
+        </div>
+
+        <!-- OS Switcher -->
+        <div class="os-tabs">
+          <button type="button" class="os-tab active" data-os="ios">iPhone (iOS Sheet)</button>
+          <button type="button" class="os-tab" data-os="android">Android Prompt</button>
+          <button type="button" class="os-tab" data-os="fallback">Fallback Card</button>
+        </div>
+
+        <!-- Phone Frame -->
+        <div class="phone-frame">
+          <div class="phone-notch"></div>
+
+          <!-- View 1: iOS Native Contacts Sheet -->
+          <div class="ios-screen" id="simIos">
+            <div class="ios-nfc-toast">
+              <div style="width:28px;height:28px;border-radius:7px;background:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M6 8.32a7.43 7.43 0 0 1 0 7.36"/><path d="M9.46 6.21a11.76 11.76 0 0 1 0 11.58"/><path d="M12.91 4.1a15.91 15.91 0 0 1 .01 15.8"/></svg>
+              </div>
+              <div>
+                <div style="font-weight:700;color:#fff;">NFC Tag Detected — Contacts</div>
+                <div style="color:#a1a1aa;font-size:10.5px;">Immediate vCard 3.0 prompt opened</div>
+              </div>
+            </div>
+
+            <div class="ios-sheet-header">
+              <span class="ios-blue">Cancel</span>
+              <span style="font-weight:700;font-size:13.5px;">New Contact</span>
+              <span class="ios-blue">Save</span>
+            </div>
+
+            <div class="ios-avatar-zone">
+              <div class="ios-circle" id="simIosInitials">JM</div>
+              <div class="ios-name" id="simIosName">Jean-Luc Morel</div>
+              <div class="ios-org" id="simIosRole">Senior Consultant • Morel Advisory</div>
+            </div>
+
+            <div class="ios-group">
+              <div class="ios-field-label">mobile</div>
+              <div class="ios-field-val" id="simIosPhone">+230 5728 9400</div>
+            </div>
+
+            <div class="ios-group">
+              <div class="ios-field-label">email</div>
+              <div class="ios-field-val" id="simIosEmail">jl.morel@moreladvisory.com</div>
+            </div>
+
+            <div class="ios-group" id="simIosCustomBankGroup">
+              <div class="ios-field-label" id="simIosCustomBankLabel">Bank (MCB)</div>
+              <div class="ios-field-val" id="simIosCustomBankVal">000448291038</div>
+            </div>
+
+            <div class="ios-group">
+              <div class="ios-field-label">Notes</div>
+              <div class="ios-field-val notes" id="simIosNotes"></div>
+            </div>
+
+            <div class="ios-bottom-cta">
+              Save to iPhone Contacts
+            </div>
+          </div>
+
+          <!-- View 2: Android Native Contacts Sheet -->
+          <div class="android-screen" id="simAndroid" style="display:none;">
+            <div class="android-topbar">
+              <span style="font-size:14px;font-weight:700;">Create contact</span>
+              <span class="android-save-pill">Save</span>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;">
+              <div class="ios-circle" style="width:52px;height:52px;font-size:18px;margin:0;background:#059669;" id="simAndInitials">JM</div>
+              <div>
+                <div style="font-size:17px;font-weight:700;" id="simAndName">Jean-Luc Morel</div>
+                <div style="font-size:12px;color:#9aa0a6;" id="simAndRole">Morel Advisory Partners</div>
+              </div>
+            </div>
+
+            <div class="android-card">
+              <div class="android-label">Mobile Phone</div>
+              <div class="android-val" id="simAndPhone">+230 5728 9400</div>
+            </div>
+
+            <div class="android-card">
+              <div class="android-label">Email</div>
+              <div class="android-val" id="simAndEmail">jl.morel@moreladvisory.com</div>
+            </div>
+
+            <div class="android-card">
+              <div class="android-label">Notes (Bank Account Details)</div>
+              <div class="android-val" id="simAndNotes" style="font-family:monospace;font-size:12px;color:#8ab4f8;margin-top:4px;"></div>
+            </div>
+
+            <div style="margin:auto 14px 16px;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px;font-size:11.5px;color:#cbd5e1;text-align:center;">
+              Android imports all fields + Bank Account into Google / Phone Contacts
+            </div>
+          </div>
+
+          <!-- View 3: Fallback Card View (/tap) -->
+          <div id="simFallback" style="display:none;flex:1;background:#090d16;">
+            <iframe src="/tap?noauto=1" id="fallbackIframe" style="width:100%;height:590px;border:none;"></iframe>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">
+          <a href="/contact.vcf" class="btn btn-primary" style="font-size:12.5px;">
+            Test .vcf Prompt
+          </a>
+          <a href="/tap" target="_blank" class="btn btn-sky" style="font-size:12.5px;">
+            Simulate NFC Tap
+          </a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      let currentMode = 'tap_auto';
+      let latestStatelessToken = '';
+      let latestVcard = '';
+
+      const fields = [
+        'fullName',
+        'phone',
+        'email',
+        'jobTitle',
+        'company',
+        'bankName',
+        'accountHolder',
+        'accountNumber'
+      ];
+
+      function getInitials(name) {
+        const parts = String(name || 'C').trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      }
+
+      function getFormValues() {
+        const data = {};
+        fields.forEach(f => {
+          data[f] = document.getElementById(f).value;
+        });
+        data.includeCustomBankField = document.getElementById('includeCustomBankField').checked;
+        return data;
+      }
+
+      function computeTargetUrl() {
+        const origin = window.location.origin;
+        if (currentMode === 'direct_vcf') {
+          return `${origin}/contact.vcf`;
+        }
+        if (currentMode === 'stateless') {
+          return `${origin}/tap?d=${latestStatelessToken}`;
+        }
+        return `${origin}/tap`;
+      }
+
+      function updateChipCompatibility(urlStr) {
+        // NDEF URI record overhead is ~7 bytes
+        const byteLen = new TextEncoder().encode(urlStr).length + 7;
+
+        function setStatus(elId, maxBytes) {
+          const el = document.getElementById(elId);
+          if (byteLen <= maxBytes) {
+            el.className = 'chip-status ok';
+            el.textContent = `✓ Fits (${byteLen} / ${maxBytes} B)`;
+          } else {
+            el.className = 'chip-status err';
+            el.textContent = `✗ Too Large (${byteLen} / ${maxBytes} B)`;
+          }
+        }
+
+        setStatus('chip213Status', 144);
+        setStatus('chip215Status', 504);
+        setStatus('chip216Status', 888);
+      }
+
+      function updateSimulator(p, vcardStr) {
+        const fullName = p.fullName || 'Professional Contact';
+        const initials = getInitials(fullName);
+        const role = [p.jobTitle, p.company].filter(Boolean).join(' • ') || 'Professional';
+
+        // iOS
+        document.getElementById('simIosInitials').textContent = initials;
+        document.getElementById('simIosName').textContent = fullName;
+        document.getElementById('simIosRole').textContent = role;
+        document.getElementById('simIosPhone').textContent = p.phone || '—';
+        document.getElementById('simIosEmail').textContent = p.email || '—';
+
+        const customBankGroup = document.getElementById('simIosCustomBankGroup');
+        if (p.includeCustomBankField && p.accountNumber) {
+          customBankGroup.style.display = 'block';
+          document.getElementById('simIosCustomBankLabel').textContent = p.bankName
+            ? `Bank (${p.bankName})`
+            : 'Bank Account No';
+          document.getElementById('simIosCustomBankVal').textContent = p.accountNumber;
+        } else {
+          customBankGroup.style.display = 'none';
+        }
+
+        const noteLines = [
+          '=== BANK ACCOUNT DETAILS ===',
+          p.bankName ? `Bank Name: ${p.bankName}` : null,
+          `Account Holder: ${p.accountHolder || fullName}`,
+          p.accountNumber ? `Account Number: ${p.accountNumber}` : null
+        ].filter(Boolean).join('\n');
+
+        document.getElementById('simIosNotes').textContent = noteLines;
+
+        // Android
+        document.getElementById('simAndInitials').textContent = initials;
+        document.getElementById('simAndName').textContent = fullName;
+        document.getElementById('simAndRole').textContent = role;
+        document.getElementById('simAndPhone').textContent = p.phone || '—';
+        document.getElementById('simAndEmail').textContent = p.email || '—';
+        document.getElementById('simAndNotes').textContent = noteLines;
+
+        if (vcardStr) {
+          latestVcard = vcardStr;
+          document.getElementById('vcardPreview').textContent = vcardStr;
+        }
+      }
+
+      function refreshPayloadAndQr() {
+        const url = computeTargetUrl();
+        document.getElementById('nfcPayloadUrl').textContent = url;
+        updateChipCompatibility(url);
+
+        fetch(`/api/qr?text=${encodeURIComponent(url)}`)
+          .then(r => r.text())
+          .then(svg => {
+            document.getElementById('qrContainer').innerHTML = svg;
+          })
+          .catch(() => {});
+      }
+
+      // Load initial profile from backend
+      function loadFromServer() {
+        fetch('/api/profile')
+          .then(r => r.json())
+          .then(data => {
+            const p = data.profile || {};
+            fields.forEach(f => {
+              if (document.getElementById(f)) {
+                document.getElementById(f).value = p[f] || '';
+              }
+            });
+            document.getElementById('includeCustomBankField').checked = p.includeCustomBankField !== false;
+            latestStatelessToken = data.statelessToken || '';
+            updateSimulator(p, data.vcard);
+            refreshPayloadAndQr();
+
+            if (p.analytics) {
+              document.getElementById('statTotal').textContent = p.analytics.totalTaps || 0;
+              document.getElementById('statIos').textContent = p.analytics.iosTaps || 0;
+              document.getElementById('statAndroid').textContent = p.analytics.androidTaps || 0;
+            }
+          });
+      }
+
+      loadFromServer();
+
+      // Live input preview
+      fields.forEach(f => {
+        document.getElementById(f).addEventListener('input', () => {
+          updateSimulator(getFormValues());
+        });
+      });
+      document.getElementById('includeCustomBankField').addEventListener('change', () => {
+        updateSimulator(getFormValues());
+      });
+
+      // Save form
+      document.getElementById('profileForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const payload = getFormValues();
+        fetch('/api/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+          .then(r => r.json())
+          .then(data => {
+            latestStatelessToken = data.statelessToken || '';
+            updateSimulator(data.profile, data.vcard);
+            refreshPayloadAndQr();
+            const iframe = document.getElementById('fallbackIframe');
+            if (iframe) iframe.src = '/tap?noauto=1&t=' + Date.now();
+
+            const toast = document.getElementById('saveToast');
+            toast.classList.add('visible');
+            setTimeout(() => toast.classList.remove('visible'), 2600);
+          });
+      });
+
+      // Mode selector cards
+      document.querySelectorAll('.mode-card').forEach(card => {
+        card.addEventListener('click', () => {
+          document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('active'));
+          card.classList.add('active');
+          currentMode = card.getAttribute('data-mode');
+          refreshPayloadAndQr();
+        });
+      });
+
+      // Copy NFC URL
+      document.getElementById('btnCopyUrl').addEventListener('click', function () {
+        const url = computeTargetUrl();
+        navigator.clipboard.writeText(url);
+        this.textContent = 'Copied URL!';
+        setTimeout(() => (this.textContent = 'Copy NFC URL'), 1800);
+      });
+
+      // Copy Raw vCard
+      document.getElementById('btnCopyVcard').addEventListener('click', function () {
+        navigator.clipboard.writeText(latestVcard);
+        this.textContent = 'Copied .vcf!';
+        setTimeout(() => (this.textContent = 'Copy Raw .vcf'), 1800);
+      });
+
+      // Web NFC Direct Writer (Android Chrome NDEFReader API)
+      document.getElementById('btnWebNfcWrite').addEventListener('click', async function () {
+        const statusEl = document.getElementById('webNfcStatus');
+        const targetUrl = computeTargetUrl();
+
+        if (!('NDEFReader' in window)) {
+          statusEl.style.color = '#fbbf24';
+          statusEl.textContent = 'Web NFC requires Chrome on Android. On iOS/Desktop, copy the URL into the free "NFC Tools" app.';
+          return;
+        }
+
+        try {
+          const ndef = new window.NDEFReader();
+          statusEl.style.color = '#38bdf8';
+          statusEl.textContent = 'Hold your NFC keychain against the back of your phone now...';
+          await ndef.write({
+            records: [{ recordType: 'url', data: targetUrl }]
+          });
+          statusEl.style.color = '#34d399';
+          statusEl.textContent = '✓ Successfully written to NFC Keychain!';
+        } catch (err) {
+          statusEl.style.color = '#fb7185';
+          statusEl.textContent = 'Write canceled or failed: ' + err.message;
+        }
+      });
+
+      // OS Preview Tabs
+      document.querySelectorAll('.os-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.os-tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          const os = tab.getAttribute('data-os');
+          document.getElementById('simIos').style.display = os === 'ios' ? 'flex' : 'none';
+          document.getElementById('simAndroid').style.display = os === 'android' ? 'flex' : 'none';
+          document.getElementById('simFallback').style.display = os === 'fallback' ? 'block' : 'none';
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

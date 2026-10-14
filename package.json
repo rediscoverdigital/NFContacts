@@ -1,0 +1,14 @@
+{
+  "name": "nfc-keychain-contact-system",
+  "version": "1.0.0",
+  "description": "Full-stack NFC Keychain Contact & Bank Account Transfer System for iOS and Android",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "qrcode": "^1.5.4"
+  }
+}

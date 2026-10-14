@@ -1,0 +1,39 @@
+{
+  "fullName": "Jean-Luc Morel",
+  "firstName": "Jean-Luc",
+  "lastName": "Morel",
+  "jobTitle": "Senior Consultant & Principal Advisor",
+  "company": "Morel Advisory Partners",
+  "phone": "+230 5728 9400",
+  "email": "jl.morel@moreladvisory.com",
+  "website": "",
+  "bankName": "Mauritius Commercial Bank (MCB)",
+  "accountHolder": "Jean-Luc Morel",
+  "accountNumber": "000448291038",
+  "tapMode": "auto_prompt_with_fallback",
+  "includeCustomBankField": true,
+  "updatedAt": "2026-10-14T10:00:00.000Z",
+  "analytics": {
+    "totalTaps": 3,
+    "iosTaps": 2,
+    "androidTaps": 1,
+    "otherTaps": 0,
+    "recentTaps": [
+      {
+        "timestamp": "2026-10-14T09:42:10.000Z",
+        "platform": "iOS (iPhone)",
+        "mode": "NFC Tap -> Auto vCard"
+      },
+      {
+        "timestamp": "2026-10-14T09:15:22.000Z",
+        "platform": "Android",
+        "mode": "NFC Tap -> Auto vCard"
+      },
+      {
+        "timestamp": "2026-10-13T16:30:05.000Z",
+        "platform": "iOS (iPhone)",
+        "mode": "NFC Tap -> Auto vCard"
+      }
+    ]
+  }
+}
