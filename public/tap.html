@@ -14,8 +14,7 @@
       --text-muted: #94a3b8;
       --accent: #10b981;
       --accent-hover: #059669;
-      --blue: #3b82f6;
-      --amber: #f59e0b;
+      --blue: #38bdf8;
     }
     * {
       box-sizing: border-box;
@@ -292,8 +291,8 @@
       <div class="profile-header">
         <div class="avatar" id="avatarInitials">JM</div>
         <div class="profile-meta">
-          <h1 id="dispName">Loading...</h1>
-          <p id="dispRole"></p>
+          <h1 id="dispName">Jean-Luc Morel</h1>
+          <p id="dispRole">Senior Consultant &amp; Principal Advisor • Morel Advisory Partners</p>
           <span class="nfc-badge">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M6 8.32a7.43 7.43 0 0 1 0 7.36"/><path d="M9.46 6.21a11.76 11.76 0 0 1 0 11.58"/><path d="M12.91 4.1a15.91 15.91 0 0 1 .01 15.8"/><path d="M16.37 2a20.16 20.16 0 0 1 0 20"/></svg>
             NFC Verified Contact
@@ -301,10 +300,10 @@
         </div>
       </div>
 
-      <a href="/contact.vcf" id="btnSaveVcf" class="btn-save-contact">
+      <button type="button" id="btnSaveVcf" class="btn-save-contact">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
         Save to Phone Contacts (.vcf)
-      </a>
+      </button>
       <p class="save-subtext">Saves Name, Phone, Email &amp; Bank Account into your Contacts app (iOS &amp; Android)</p>
     </div>
 
@@ -317,15 +316,15 @@
       <div class="bank-box">
         <div class="bank-row">
           <span class="bank-label">Bank Name</span>
-          <span class="bank-value" id="dispBankName">—</span>
+          <span class="bank-value" id="dispBankName">Mauritius Commercial Bank (MCB)</span>
         </div>
         <div class="bank-row">
           <span class="bank-label">Account Holder</span>
-          <span class="bank-value" id="dispAccountHolder">—</span>
+          <span class="bank-value" id="dispAccountHolder">Jean-Luc Morel</span>
         </div>
         <div class="bank-row">
           <span class="bank-label">Account Number</span>
-          <span class="bank-value acct-number-highlight" id="dispAccountNumber">—</span>
+          <span class="bank-value acct-number-highlight" id="dispAccountNumber">000448291038</span>
         </div>
         <div class="bank-actions">
           <button type="button" class="btn-copy" id="btnCopyAcct">
@@ -346,27 +345,27 @@
         <span>Direct Contact Channels</span>
       </div>
       <div class="contact-list">
-        <a href="#" id="linkPhone" class="contact-item">
+        <a href="tel:+23057289400" id="linkPhone" class="contact-item">
           <div class="contact-item-left">
             <div class="icon-circle">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
             </div>
             <div>
               <div class="contact-item-label">Phone Number</div>
-              <div class="contact-item-val" id="dispPhone">—</div>
+              <div class="contact-item-val" id="dispPhone">+230 5728 9400</div>
             </div>
           </div>
           <span class="contact-action-pill">Call</span>
         </a>
 
-        <a href="#" id="linkEmail" class="contact-item">
+        <a href="mailto:jl.morel@moreladvisory.com" id="linkEmail" class="contact-item">
           <div class="contact-item-left">
             <div class="icon-circle">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
             </div>
             <div>
               <div class="contact-item-label">Email Address</div>
-              <div class="contact-item-val" id="dispEmail">—</div>
+              <div class="contact-item-val" id="dispEmail">jl.morel@moreladvisory.com</div>
             </div>
           </div>
           <span class="contact-action-pill">Email</span>
@@ -375,22 +374,97 @@
     </div>
 
     <div class="footer-link">
-      Powered by NFC Instant Contact &bull; <a href="/">Open NFC Keychain Studio</a>
+      Powered by NFC Instant Contact &bull; <a href="./index.html">Open NFC Keychain Studio</a>
     </div>
   </div>
 
   <script>
     (function () {
-      const params = new URLSearchParams(window.location.search);
-      const statelessD = params.get('d');
-      const noAuto = params.get('noauto') === '1';
+      const DEFAULT_PROFILE = {
+        fullName: 'Jean-Luc Morel',
+        jobTitle: 'Senior Consultant & Principal Advisor',
+        company: 'Morel Advisory Partners',
+        phone: '+230 5728 9400',
+        email: 'jl.morel@moreladvisory.com',
+        bankName: 'Mauritius Commercial Bank (MCB)',
+        accountHolder: 'Jean-Luc Morel',
+        accountNumber: '000448291038',
+        includeCustomBankField: true
+      };
 
-      const vcfUrl = statelessD
-        ? `/contact.vcf?d=${encodeURIComponent(statelessD)}&source=tap_auto`
-        : `/contact.vcf?source=tap_auto`;
+      let activeProfile = Object.assign({}, DEFAULT_PROFILE);
 
-      const btnSaveVcf = document.getElementById('btnSaveVcf');
-      btnSaveVcf.href = vcfUrl;
+      function escapeVCard(str) {
+        return String(str || '')
+          .replace(/\\/g, '\\\\')
+          .replace(/\r?\n/g, '\\n')
+          .replace(/;/g, '\\;')
+          .replace(/,/g, '\\,');
+      }
+
+      function splitName(fullName) {
+        const trimmed = String(fullName || '').trim();
+        if (!trimmed) return { firstName: 'Professional', lastName: '' };
+        const parts = trimmed.split(/\s+/);
+        if (parts.length === 1) return { firstName: parts[0], lastName: '' };
+        const lastName = parts.pop();
+        return { firstName: parts.join(' '), lastName };
+      }
+
+      function buildVCardString(p) {
+        const fullName = (p.fullName || '').trim() || 'Contact';
+        const { firstName, lastName } = splitName(fullName);
+        const lines = [
+          'BEGIN:VCARD',
+          'VERSION:3.0',
+          `N;CHARSET=UTF-8:${escapeVCard(lastName)};${escapeVCard(firstName)};;;`,
+          `FN;CHARSET=UTF-8:${escapeVCard(fullName)}`
+        ];
+        if (p.company) lines.push(`ORG;CHARSET=UTF-8:${escapeVCard(p.company)}`);
+        if (p.jobTitle) lines.push(`TITLE;CHARSET=UTF-8:${escapeVCard(p.jobTitle)}`);
+        if (p.phone) lines.push(`TEL;TYPE=CELL,VOICE,PREF:${p.phone.trim()}`);
+        if (p.email) lines.push(`EMAIL;TYPE=PREF,INTERNET:${p.email.trim()}`);
+
+        const noteParts = [];
+        if (p.bankName || p.accountNumber || p.accountHolder) {
+          noteParts.push('=== BANK ACCOUNT DETAILS ===');
+          if (p.bankName) noteParts.push(`Bank Name: ${p.bankName}`);
+          if (p.accountHolder || fullName) noteParts.push(`Account Holder: ${p.accountHolder || fullName}`);
+          if (p.accountNumber) noteParts.push(`Account Number: ${p.accountNumber}`);
+        }
+        if (noteParts.length > 0) {
+          lines.push(`NOTE;CHARSET=UTF-8:${escapeVCard(noteParts.join('\n'))}`);
+        }
+        if (p.includeCustomBankField !== false && p.accountNumber) {
+          const lbl = p.bankName ? `Bank (${p.bankName})` : 'Bank Account No';
+          lines.push(`item1.X-ABICQ;CHARSET=UTF-8:${escapeVCard(p.accountNumber)}`);
+          lines.push(`item1.X-ABLabel;CHARSET=UTF-8:${escapeVCard(lbl)}`);
+        }
+        lines.push('END:VCARD');
+        return lines.join('\r\n') + '\r\n';
+      }
+
+      function triggerVCardDownload(p) {
+        const vcard = buildVCardString(p);
+        const safeName = ((p.fullName || 'Contact').replace(/[^a-zA-Z0-9_-]/g, '_') || 'Contact') + '.vcf';
+        const dataUri = 'data:text/vcard;charset=utf-8,' + encodeURIComponent(vcard);
+
+        const a = document.createElement('a');
+        a.href = dataUri;
+        a.download = safeName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
+      function decodeBase64Url(str) {
+        const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+        const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
+        const bin = atob(b64 + pad);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new TextDecoder().decode(bytes);
+      }
 
       function getInitials(name) {
         const parts = String(name || 'C').trim().split(/\s+/);
@@ -399,34 +473,25 @@
       }
 
       function populateUI(p) {
-        const fullName = p.fullName || 'Professional Contact';
+        activeProfile = Object.assign({}, DEFAULT_PROFILE, p);
+        const fullName = activeProfile.fullName || 'Professional Contact';
         document.getElementById('dispName').textContent = fullName;
         document.getElementById('avatarInitials').textContent = getInitials(fullName);
 
-        const roleParts = [p.jobTitle, p.company].filter(Boolean);
+        const roleParts = [activeProfile.jobTitle, activeProfile.company].filter(Boolean);
         document.getElementById('dispRole').textContent = roleParts.join(' • ') || 'Professional Contact';
 
-        document.getElementById('dispPhone').textContent = p.phone || '—';
-        document.getElementById('linkPhone').href = p.phone ? `tel:${p.phone.replace(/\s+/g, '')}` : '#';
+        document.getElementById('dispPhone').textContent = activeProfile.phone || '—';
+        document.getElementById('linkPhone').href = activeProfile.phone
+          ? `tel:${activeProfile.phone.replace(/\s+/g, '')}`
+          : '#';
 
-        document.getElementById('dispEmail').textContent = p.email || '—';
-        document.getElementById('linkEmail').href = p.email ? `mailto:${p.email}` : '#';
+        document.getElementById('dispEmail').textContent = activeProfile.email || '—';
+        document.getElementById('linkEmail').href = activeProfile.email ? `mailto:${activeProfile.email}` : '#';
 
-        document.getElementById('dispBankName').textContent = p.bankName || '—';
-        document.getElementById('dispAccountHolder').textContent = p.accountHolder || fullName;
-        document.getElementById('dispAccountNumber').textContent = p.accountNumber || '—';
-
-        // Setup copy buttons
-        const btnCopyAcct = document.getElementById('btnCopyAcct');
-        btnCopyAcct.onclick = function () {
-          copyText(p.accountNumber || '', 'copyAcctLabel', btnCopyAcct, 'Copy Account #');
-        };
-
-        const btnCopyAllBank = document.getElementById('btnCopyAllBank');
-        btnCopyAllBank.onclick = function () {
-          const summary = `Bank: ${p.bankName || ''}\nAccount Holder: ${p.accountHolder || fullName}\nAccount Number: ${p.accountNumber || ''}`;
-          copyText(summary, 'copyAllBankLabel', btnCopyAllBank, 'Copy All Bank Info');
-        };
+        document.getElementById('dispBankName').textContent = activeProfile.bankName || '—';
+        document.getElementById('dispAccountHolder').textContent = activeProfile.accountHolder || fullName;
+        document.getElementById('dispAccountNumber').textContent = activeProfile.accountNumber || '—';
       }
 
       function copyText(text, labelId, btnEl, defaultText) {
@@ -456,12 +521,27 @@
         }
       }
 
-      // Decode stateless token immediately if provided, otherwise fetch stored server profile
+      document.getElementById('btnCopyAcct').onclick = function () {
+        copyText(activeProfile.accountNumber || '', 'copyAcctLabel', this, 'Copy Account #');
+      };
+
+      document.getElementById('btnCopyAllBank').onclick = function () {
+        const summary = `Bank: ${activeProfile.bankName || ''}\nAccount Holder: ${activeProfile.accountHolder || activeProfile.fullName}\nAccount Number: ${activeProfile.accountNumber || ''}`;
+        copyText(summary, 'copyAllBankLabel', this, 'Copy All Bank Info');
+      };
+
+      document.getElementById('btnSaveVcf').onclick = function () {
+        triggerVCardDownload(activeProfile);
+      };
+
+      // 1. Check URL query parameter ?d= (Stateless URL mode — works on GitHub Pages & everywhere)
+      const params = new URLSearchParams(window.location.search);
+      const statelessD = params.get('d');
+      const noAuto = params.get('noauto') === '1';
+
       if (statelessD) {
         try {
-          const b64 = statelessD.replace(/-/g, '+').replace(/_/g, '/');
-          const jsonStr = decodeURIComponent(escape(atob(b64)));
-          const d = JSON.parse(jsonStr);
+          const d = JSON.parse(decodeBase64Url(statelessD));
           populateUI({
             fullName: d.fn || d.fullName,
             jobTitle: d.jt || d.jobTitle,
@@ -470,28 +550,35 @@
             email: d.em || d.email,
             bankName: d.bn || d.bankName,
             accountHolder: d.ah || d.accountHolder,
-            accountNumber: d.an || d.accountNumber
+            accountNumber: d.an || d.accountNumber,
+            includeCustomBankField: d.cb !== undefined ? Boolean(d.cb) : true
           });
         } catch (err) {
-          console.error('Error decoding stateless param:', err);
+          console.warn('Could not decode ?d= parameter:', err);
         }
+      } else {
+        // 2. Check localStorage fallback
+        try {
+          const saved = localStorage.getItem('nfc_studio_profile_v1');
+          if (saved) populateUI(JSON.parse(saved));
+        } catch (e) {}
       }
 
-      fetch('/api/profile')
-        .then(r => r.json())
-        .then(data => {
-          if (!statelessD && data && data.profile) {
-            populateUI(data.profile);
-          }
-        })
-        .catch(() => {});
+      // 3. Also check /api/profile if running on Node backend
+      if (!statelessD && window.location.protocol.startsWith('http')) {
+        fetch('/api/profile')
+          .then(r => (r.ok ? r.json() : null))
+          .then(data => {
+            if (data && data.profile) populateUI(data.profile);
+          })
+          .catch(() => {});
+      }
 
-      // Immediate "Add to Contacts" Auto-Trigger on Tap!
-      // Triggers the native iOS Safari Contacts sheet or Android Contacts import immediately upon NFC tap load.
+      // 4. Auto-trigger native "Add to Contacts" sheet on load
       if (!noAuto) {
         setTimeout(() => {
-          window.location.href = vcfUrl;
-        }, 180);
+          triggerVCardDownload(activeProfile);
+        }, 200);
       } else {
         document.getElementById('promptBannerText').innerHTML =
           '<strong>Preview Mode:</strong> Tap "Save to Phone Contacts (.vcf)" below to test the native contact sheet.';
