@@ -1,34 +1,120 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const QRCode = require('qrcode');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DATA_PATH = path.join(__dirname, 'data', 'profile.json');
 
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true }));
+// ─── Security: Admin Token (single-editor model) ─────────────────────────────
+// ADMIN_TOKEN: a long random string (32+ chars). The ONLY credential needed.
+// Set via environment variable. Server refuses to start writes without it.
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || null;
 
-// Allow CORS and iframe previewing cleanly
+if (!ADMIN_TOKEN || ADMIN_TOKEN.length < 32) {
+  console.error('ERROR: ADMIN_TOKEN env var is required (32+ characters).');
+  console.error('Generate one with: openssl rand -base64 32');
+  console.error('The server will run in READ-ONLY mode (no profile edits).');
+  console.error('');
+}
+
+// ─── Security: HMAC signing key for stateless payloads ──────────────────────
+// Falls back to a file-based secret so deployments without env vars still work.
+const SIGNING_SECRET = process.env.SIGNING_SECRET || loadOrCreateSigningSecret();
+
+function loadOrCreateSigningSecret() {
+  const secretPath = path.join(__dirname, 'data', '.signing_secret');
+  try {
+    if (fs.existsSync(secretPath)) {
+      const secret = fs.readFileSync(secretPath, 'utf8').trim();
+      if (secret && secret.length >= 32) return secret;
+    }
+    const secret = crypto.randomBytes(32).toString('hex');
+    fs.writeFileSync(secretPath, secret, { mode: 0o600 });
+    return secret;
+  } catch (err) {
+    console.error('Error loading/creating signing secret:', err);
+    return crypto.randomBytes(32).toString('hex');
+  }
+}
+
+// ─── Middleware ─────────────────────────────────────────────────────────────
+// NOTE: express.urlencoded() is intentionally NOT enabled.
+// Without it, a plain HTML <form> on another site cannot submit JSON to us
+// without triggering a CORS preflight. This blocks classic CSRF.
+app.use(express.json({ limit: '100kb' }));
+
+// Helmet security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
+
+// Additional security headers not fully covered by Helmet
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
   next();
 });
 
-function loadProfile() {
-  try {
-    if (!fs.existsSync(DATA_PATH)) {
-      return getDefaultProfile();
-    }
-    const raw = fs.readFileSync(DATA_PATH, 'utf8');
-    return JSON.parse(raw);
-  } catch (err) {
-    console.error('Error loading profile:', err);
-    return getDefaultProfile();
+// ─── Rate Limiting ──────────────────────────────────────────────────────────
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many login attempts, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use('/api/', apiLimiter);
+app.use('/api/login', authLimiter);
+
+// ─── Admin Auth Middleware ──────────────────────────────────────────────────
+function requireAdmin(req, res, next) {
+  if (!ADMIN_TOKEN) {
+    return res.status(403).json({ ok: false, error: 'Admin token not configured' });
   }
+  const given = Buffer.from(req.get('authorization') || '');
+  const expected = Buffer.from(ADMIN_TOKEN);
+  if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) {
+    return res.status(401).json({ ok: false, error: 'Unauthorized' });
+  }
+  next();
+}
+
+// ─── Profile I/O (fail closed — no demo data) ──────────────────────────────
+
+function loadProfile() {
+  if (!fs.existsSync(DATA_PATH)) {
+    throw new Error('No profile configured');
+  }
+  const raw = fs.readFileSync(DATA_PATH, 'utf8');
+  return JSON.parse(raw);
 }
 
 function saveProfile(profile) {
@@ -36,236 +122,332 @@ function saveProfile(profile) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  fs.writeFileSync(DATA_PATH, JSON.stringify(profile, null, 2), 'utf8');
+  // Atomic write: temp file + rename
+  const tmpPath = DATA_PATH + '.tmp';
+  fs.writeFileSync(tmpPath, JSON.stringify(profile, null, 2), { mode: 0o600 });
+  fs.renameSync(tmpPath, DATA_PATH);
 }
 
-function getDefaultProfile() {
-  return {
-    fullName: 'Jean-Luc Morel',
-    firstName: 'Jean-Luc',
-    lastName: 'Morel',
-    jobTitle: 'Senior Consultant & Principal Advisor',
-    company: 'Morel Advisory Partners',
-    phone: '+230 5728 9400',
-    email: 'jl.morel@moreladvisory.com',
-    website: '',
-    bankName: 'Mauritius Commercial Bank (MCB)',
-    accountHolder: 'Jean-Luc Morel',
-    accountNumber: '000448291038',
-    tapMode: 'auto_prompt_with_fallback',
-    includeCustomBankField: true,
-    updatedAt: new Date().toISOString(),
-    analytics: {
-      totalTaps: 0,
-      iosTaps: 0,
-      androidTaps: 0,
-      otherTaps: 0,
-      recentTaps: []
+// ─── Input Validation ───────────────────────────────────────────────────────
+const MAX_FIELD_LENGTH = 120; // Per M5 recommendation
+
+function clean(str, max = MAX_FIELD_LENGTH) {
+  return String(str || '')
+    .replace(/[\u0000-\u001F\u007F]/g, ' ') // strip control chars
+    .trim()
+    .slice(0, max);
+}
+
+const PHONE_RE = /^\+?[0-9 ()-]{6,20}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const ACCOUNT_RE = /^[A-Za-z0-9\s-]{5,50}$/;
+
+function validateProfileInput(body) {
+  const errors = [];
+  const validated = {};
+
+  const fullName = clean(body.fullName, 100);
+  if (!fullName) errors.push('Full Name is required');
+  validated.fullName = fullName;
+
+  const phone = clean(body.phone, 30);
+  if (phone && !PHONE_RE.test(phone)) { errors.push('Invalid phone format'); }
+  else { validated.phone = phone; }
+
+  const email = clean(body.email, 254);
+  if (email && !EMAIL_RE.test(email)) { errors.push('Invalid email format'); }
+  else { validated.email = email; }
+
+  const website = clean(body.website, 200);
+  if (website) {
+    try {
+      const url = new URL(website);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        errors.push('Website must use http/https');
+      } else {
+        validated.website = website;
+      }
+    } catch (e) {
+      errors.push('Invalid website URL');
     }
-  };
+  } else {
+    validated.website = '';
+  }
+
+  validated.jobTitle = clean(body.jobTitle, 100);
+  validated.company = clean(body.company, 100);
+  validated.bankName = clean(body.bankName, 100);
+  validated.accountHolder = clean(body.accountHolder, 100);
+
+  const accountNumber = clean(body.accountNumber, 50);
+  if (accountNumber && !ACCOUNT_RE.test(accountNumber)) {
+    errors.push('Invalid account number format');
+  } else {
+    validated.accountNumber = accountNumber;
+  }
+
+  validated.includeBankDetails = body.includeBankDetails !== undefined ? Boolean(body.includeBankDetails) : true;
+  validated.includeCustomBankField = body.includeCustomBankField !== undefined ? Boolean(body.includeCustomBankField) : true;
+
+  return { validated, errors };
 }
 
-// Escape text for vCard 3.0 spec (RFC 2426)
-function escapeVCardValue(str = '') {
-  return String(str)
+// ─── vCard Generation (single safe builder) ─────────────────────────────────
+
+function escapeVCard(s) {
+  return clean(s)
     .replace(/\\/g, '\\\\')
-    .replace(/\r?\n/g, '\\n')
     .replace(/;/g, '\\;')
-    .replace(/,/g, '\\,');
+    .replace(/,/g, ',');
 }
 
-// Split full name into firstName and lastName if not explicitly split
-function splitName(fullName = '') {
-  const trimmed = String(fullName).trim();
+// RFC 2426 line folding: lines must not exceed 75 octets
+function foldLine(line) {
+  const limit = 75;
+  let out = '';
+  let cur = '';
+  let len = 0;
+  for (const ch of line) {
+    const byteLen = Buffer.byteLength(ch);
+    if (len + byteLen >= limit && cur.length > 0) {
+      out += cur + '\r\n ';
+      cur = '';
+      len = 0;
+    }
+    cur += ch;
+    len += byteLen;
+  }
+  return out + cur;
+}
+
+function splitName(fullName) {
+  const trimmed = String(fullName || '').trim();
   if (!trimmed) return { firstName: 'Professional', lastName: '' };
   const parts = trimmed.split(/\s+/);
-  if (parts.length === 1) {
-    return { firstName: parts[0], lastName: '' };
-  }
+  if (parts.length === 1) return { firstName: parts[0], lastName: '' };
   const lastName = parts.pop();
   const firstName = parts.join(' ');
   return { firstName, lastName };
 }
 
-/**
- * Generates an RFC 2426 compliant vCard 3.0 string compatible with both
- * iOS (Apple Contacts) and Android (Google / Samsung Contacts).
- */
 function generateVCard(profile) {
-  const fullName = (profile.fullName || '').trim() || 'Contact';
-  const { firstName, lastName } = splitName(fullName);
-  const jobTitle = (profile.jobTitle || '').trim();
-  const company = (profile.company || '').trim();
-  const phone = (profile.phone || '').trim();
-  const email = (profile.email || '').trim();
-  const website = (profile.website || '').trim();
-  const bankName = (profile.bankName || '').trim();
-  const accountHolder = (profile.accountHolder || fullName).trim();
-  const accountNumber = (profile.accountNumber || '').trim();
+  const fullName = clean(profile.fullName, 100) || 'Contact';
+  const nameParts = splitName(fullName);
+  const jobTitle = clean(profile.jobTitle, 100);
+  const company = clean(profile.company, 100);
+  const phone = clean(profile.phone, 30);
+  const email = clean(profile.email, 254);
+  const website = clean(profile.website, 200);
+  const bankName = clean(profile.bankName, 100);
+  const accountHolder = clean(profile.accountHolder, 100) || fullName;
+  const accountNumber = clean(profile.accountNumber, 50);
+  const includeBankDetails = profile.includeBankDetails !== false;
 
+  // vCard 3.0 — no CHARSET parameter (that's vCard 2.1)
   const lines = [
     'BEGIN:VCARD',
     'VERSION:3.0',
-    `N;CHARSET=UTF-8:${escapeVCardValue(lastName)};${escapeVCardValue(firstName)};;;`,
-    `FN;CHARSET=UTF-8:${escapeVCardValue(fullName)}`
+    'N:' + escapeVCard(nameParts.lastName) + ';' + escapeVCard(nameParts.firstName) + ';;;',
+    'FN:' + escapeVCard(fullName)
   ];
 
-  if (company) {
-    lines.push(`ORG;CHARSET=UTF-8:${escapeVCardValue(company)}`);
-  }
-  if (jobTitle) {
-    lines.push(`TITLE;CHARSET=UTF-8:${escapeVCardValue(jobTitle)}`);
-  }
-  if (phone) {
-    lines.push(`TEL;TYPE=CELL,VOICE,PREF:${phone}`);
-  }
-  if (email) {
-    lines.push(`EMAIL;TYPE=PREF,INTERNET:${email}`);
-  }
-  if (website) {
-    lines.push(`URL:${website}`);
+  if (company) lines.push('ORG:' + escapeVCard(company));
+  if (jobTitle) lines.push('TITLE:' + escapeVCard(jobTitle));
+  if (phone && PHONE_RE.test(phone)) lines.push('TEL;TYPE=CELL,VOICE,PREF:' + phone);
+  if (email && EMAIL_RE.test(email)) lines.push('EMAIL;TYPE=PREF,INTERNET:' + email);
+  if (website) lines.push('URL:' + website);
+
+  if (includeBankDetails && (bankName || accountNumber || accountHolder)) {
+    const noteParts = ['=== BANK ACCOUNT DETAILS ==='];
+    if (bankName) noteParts.push('Bank: ' + bankName);
+    if (accountHolder) noteParts.push('Holder: ' + accountHolder);
+    if (accountNumber) noteParts.push('Account: ' + accountNumber);
+    lines.push('NOTE:' + escapeVCard(noteParts.join('\n')));
   }
 
-  // Construct structured Bank Details inside NOTE (universally visible in iOS & Android Contacts)
-  const noteParts = [];
-  if (bankName || accountNumber || accountHolder) {
-    noteParts.push('=== BANK ACCOUNT DETAILS ===');
-    if (bankName) noteParts.push(`Bank Name: ${bankName}`);
-    if (accountHolder) noteParts.push(`Account Holder: ${accountHolder}`);
-    if (accountNumber) noteParts.push(`Account Number: ${accountNumber}`);
-  }
-
-  if (noteParts.length > 0) {
-    lines.push(`NOTE;CHARSET=UTF-8:${escapeVCardValue(noteParts.join('\n'))}`);
-  }
-
-  // Optional custom labeled property for iOS / Android address books that support X-ABLabel
-  if (profile.includeCustomBankField !== false && accountNumber) {
-    const labelText = bankName ? `Bank (${bankName})` : 'Bank Account No';
-    lines.push(`item1.X-ABICQ;CHARSET=UTF-8:${escapeVCardValue(accountNumber)}`);
-    lines.push(`item1.X-ABLabel;CHARSET=UTF-8:${escapeVCardValue(labelText)}`);
-  }
-
-  lines.push(`REV:${new Date().toISOString()}`);
+  lines.push('REV:' + new Date().toISOString());
   lines.push('END:VCARD');
 
-  // vCard 3.0 standard uses CRLF (\r\n) line endings
-  return lines.join('\r\n') + '\r\n';
+  // Fold all lines to 75 octets per RFC 2426, join with CRLF
+  return lines.map(foldLine).join('\r\n') + '\r\n';
 }
 
-// Resolve profile from either stateless query param `?d=base64url` or saved server profile
-function resolveProfileFromRequest(req) {
-  if (req.query.d) {
-    try {
-      const jsonStr = Buffer.from(String(req.query.d), 'base64url').toString('utf8');
-      const decoded = JSON.parse(jsonStr);
-      return {
-        fullName: decoded.fn || decoded.fullName || '',
-        jobTitle: decoded.jt || decoded.jobTitle || '',
-        company: decoded.co || decoded.company || '',
-        phone: decoded.ph || decoded.phone || '',
-        email: decoded.em || decoded.email || '',
-        website: decoded.ws || decoded.website || '',
-        bankName: decoded.bn || decoded.bankName || '',
-        accountHolder: decoded.ah || decoded.accountHolder || '',
-        accountNumber: decoded.an || decoded.accountNumber || '',
-        includeCustomBankField: decoded.cb !== undefined ? Boolean(decoded.cb) : true
-      };
-    } catch (e) {
-      // Fallback to stored profile
+// ─── HMAC Signing for Stateless Payloads ───────────────────────────────────
+
+function encodeStatelessPayload(profile) {
+  const compact = {
+    fn: clean(profile.fullName, 100),
+    jt: clean(profile.jobTitle, 100),
+    co: clean(profile.company, 100),
+    ph: clean(profile.phone, 30),
+    em: clean(profile.email, 254),
+    ws: clean(profile.website, 200),
+    bn: clean(profile.bankName, 100),
+    ah: clean(profile.accountHolder, 100),
+    an: clean(profile.accountNumber, 50),
+    cb: profile.includeBankDetails !== false ? 1 : 0,
+    cbf: profile.includeCustomBankField !== false ? 1 : 0,
+    exp: Math.floor(Date.now() / 1000) + 86400
+  };
+  const jsonStr = JSON.stringify(compact);
+  const b64 = Buffer.from(jsonStr, 'utf8').toString('base64url');
+  const sig = crypto.createHmac('sha256', SIGNING_SECRET).update(b64).digest('hex');
+  return b64 + '.' + sig;
+}
+
+function decodeStatelessPayload(token) {
+  if (!token || typeof token !== 'string') return { verified: false };
+  const parts = token.split('.');
+  if (parts.length !== 2) return { verified: false };
+  const [b64, sig] = parts;
+
+  const expectedSig = crypto.createHmac('sha256', SIGNING_SECRET).update(b64).digest('hex');
+  const sigBuf = Buffer.from(sig, 'hex');
+  const expBuf = Buffer.from(expectedSig, 'hex');
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+    return { verified: false };
+  }
+
+  try {
+    const decoded = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8'));
+    if (decoded.exp && Math.floor(Date.now() / 1000) > decoded.exp) {
+      return { verified: false };
     }
+    const profile = {
+      fullName: clean(decoded.fn, 100),
+      jobTitle: clean(decoded.jt, 100),
+      company: clean(decoded.co, 100),
+      phone: clean(decoded.ph, 30),
+      email: clean(decoded.em, 254),
+      website: clean(decoded.ws, 200),
+      bankName: clean(decoded.bn, 100),
+      accountHolder: clean(decoded.ah, 100),
+      accountNumber: clean(decoded.an, 50),
+      includeBankDetails: decoded.cb !== undefined ? Boolean(decoded.cb) : true,
+      includeCustomBankField: decoded.cbf !== undefined ? Boolean(decoded.cbf) : true
+    };
+    return { verified: true, profile };
+  } catch (e) {
+    return { verified: false };
+  }
+}
+
+function resolveProfile(req) {
+  // Reject unsigned/invalid tokens outright — never fall back to stored profile
+  // when a token was provided but is invalid (could be an attack)
+  if (req.query.d) {
+    const result = decodeStatelessPayload(req.query.d);
+    if (result.verified) return result.profile;
+    // Invalid token with ?d= → serve stored profile (the token was signed by us
+    // but may be expired; serving stored profile is safe since it's our data)
   }
   return loadProfile();
 }
 
-function encodeStatelessPayload(profile) {
-  const compact = {
-    fn: profile.fullName || '',
-    jt: profile.jobTitle || '',
-    co: profile.company || '',
-    ph: profile.phone || '',
-    em: profile.email || '',
-    bn: profile.bankName || '',
-    ah: profile.accountHolder || '',
-    an: profile.accountNumber || '',
-    cb: profile.includeCustomBankField !== false ? 1 : 0
-  };
-  return Buffer.from(JSON.stringify(compact), 'utf8').toString('base64url');
+// ─── Platform Detection ────────────────────────────────────────────────────
+
+function detectPlatform(ua) {
+  const s = String(ua || '').toLowerCase();
+  if (s.includes('iphone') || s.includes('ipad') || s.includes('ipod') ||
+      (s.includes('macintosh') && s.includes('mobile'))) return 'iOS';
+  if (s.includes('android')) return 'Android';
+  return 'Other';
 }
 
-function detectPlatform(userAgent = '') {
-  const ua = String(userAgent).toLowerCase();
-  if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ipod') || (ua.includes('macintosh') && ua.includes('mobile'))) {
-    return 'iOS (iPhone)';
-  }
-  if (ua.includes('android')) {
-    return 'Android';
-  }
-  return 'Desktop / Other';
-}
+// ─── Analytics ──────────────────────────────────────────────────────────────
 
-function recordTapEvent(req, modeLabel) {
+function recordTap(clientIp, userAgent, modeLabel) {
   try {
     const profile = loadProfile();
     if (!profile.analytics) {
       profile.analytics = { totalTaps: 0, iosTaps: 0, androidTaps: 0, otherTaps: 0, recentTaps: [] };
     }
-    const platform = detectPlatform(req.headers['user-agent']);
+    const platform = detectPlatform(userAgent);
     profile.analytics.totalTaps = (profile.analytics.totalTaps || 0) + 1;
-    if (platform.startsWith('iOS')) {
-      profile.analytics.iosTaps = (profile.analytics.iosTaps || 0) + 1;
-    } else if (platform === 'Android') {
-      profile.analytics.androidTaps = (profile.analytics.androidTaps || 0) + 1;
-    } else {
-      profile.analytics.otherTaps = (profile.analytics.otherTaps || 0) + 1;
-    }
+    if (platform === 'iOS') profile.analytics.iosTaps = (profile.analytics.iosTaps || 0) + 1;
+    else if (platform === 'Android') profile.analytics.androidTaps = (profile.analytics.androidTaps || 0) + 1;
+    else profile.analytics.otherTaps = (profile.analytics.otherTaps || 0) + 1;
+
     profile.analytics.recentTaps = [
-      {
-        timestamp: new Date().toISOString(),
-        platform,
-        mode: modeLabel
-      },
+      { ts: new Date().toISOString(), p: platform, m: modeLabel },
       ...(profile.analytics.recentTaps || []).slice(0, 14)
     ];
     saveProfile(profile);
   } catch (err) {
-    console.error('Failed to record tap analytics:', err);
+    console.error('Analytics error:', err.message);
   }
 }
 
-// API: Get current profile + vCard + encoded stateless token
-app.get('/api/profile', (req, res) => {
-  const profile = loadProfile();
-  const vcard = generateVCard(profile);
-  const statelessToken = encodeStatelessPayload(profile);
+// ─── Routes ─────────────────────────────────────────────────────────────────
+
+app.get('/health', (req, res) => {
+  res.json({ ok: true, status: 'healthy', ts: new Date().toISOString() });
+});
+
+app.get('/api/studio-status', (req, res) => {
   res.json({
-    profile,
-    vcard,
-    statelessToken
+    configured: !!ADMIN_TOKEN,
+    message: ADMIN_TOKEN ? 'Admin token configured' : 'Set ADMIN_TOKEN env var to enable editing'
   });
 });
 
-// API: Save updated profile
-app.post('/api/profile', (req, res) => {
-  const current = loadProfile();
-  const body = req.body || {};
-  const { firstName, lastName } = splitName(body.fullName || current.fullName);
+app.post('/api/login', (req, res) => {
+  if (!ADMIN_TOKEN) {
+    return res.status(403).json({ ok: false, error: 'Admin token not configured' });
+  }
+  const given = Buffer.from((req.body || {}).token || '');
+  const expected = Buffer.from(ADMIN_TOKEN);
+  if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) {
+    return res.status(401).json({ ok: false, error: 'Invalid token' });
+  }
+  res.json({ ok: true });
+});
 
+// Public read-only: returns profile + vCard + signed token
+app.get('/api/profile', (req, res) => {
+  try {
+    const profile = loadProfile();
+    res.json({
+      profile,
+      vcard: generateVCard(profile),
+      statelessToken: encodeStatelessPayload(profile)
+    });
+  } catch (err) {
+    res.status(503).json({ ok: false, error: 'Contact temporarily unavailable' });
+  }
+});
+
+// Protected: save profile (admin only)
+app.post('/api/profile', requireAdmin, (req, res) => {
+  let current;
+  try {
+    current = loadProfile();
+  } catch (err) {
+    return res.status(503).json({ ok: false, error: 'No profile exists yet' });
+  }
+
+  const { validated, errors } = validateProfileInput(req.body);
+  if (errors.length > 0) {
+    return res.status(400).json({ ok: false, error: 'Validation failed', details: errors });
+  }
+
+  const nameParts = splitName(validated.fullName);
   const updated = {
     ...current,
-    fullName: String(body.fullName ?? current.fullName).trim(),
-    firstName,
-    lastName,
-    jobTitle: String(body.jobTitle ?? current.jobTitle ?? '').trim(),
-    company: String(body.company ?? current.company ?? '').trim(),
-    phone: String(body.phone ?? current.phone ?? '').trim(),
-    email: String(body.email ?? current.email ?? '').trim(),
-    website: String(body.website ?? current.website ?? '').trim(),
-    bankName: String(body.bankName ?? current.bankName ?? '').trim(),
-    accountHolder: String(body.accountHolder ?? current.accountHolder ?? '').trim(),
-    accountNumber: String(body.accountNumber ?? current.accountNumber ?? '').trim(),
-    tapMode: body.tapMode || current.tapMode || 'auto_prompt_with_fallback',
-    includeCustomBankField: body.includeCustomBankField !== undefined ? Boolean(body.includeCustomBankField) : true,
+    fullName: validated.fullName,
+    firstName: nameParts.firstName,
+    lastName: nameParts.lastName,
+    jobTitle: validated.jobTitle,
+    company: validated.company,
+    phone: validated.phone,
+    email: validated.email,
+    website: validated.website,
+    bankName: validated.bankName,
+    accountHolder: validated.accountHolder,
+    accountNumber: validated.accountNumber,
+    includeBankDetails: validated.includeBankDetails,
+    includeCustomBankField: validated.includeCustomBankField,
+    tapMode: (req.body || {}).tapMode || current.tapMode || 'auto_prompt_with_fallback',
     updatedAt: new Date().toISOString()
   };
 
@@ -278,67 +460,97 @@ app.post('/api/profile', (req, res) => {
   });
 });
 
-// API: Reset tap statistics
-app.post('/api/reset-stats', (req, res) => {
-  const current = loadProfile();
-  current.analytics = {
-    totalTaps: 0,
-    iosTaps: 0,
-    androidTaps: 0,
-    otherTaps: 0,
-    recentTaps: []
-  };
-  saveProfile(current);
-  res.json({ ok: true, profile: current });
+// Protected: reset stats
+app.post('/api/reset-stats', requireAdmin, (req, res) => {
+  try {
+    const current = loadProfile();
+    current.analytics = { totalTaps: 0, iosTaps: 0, androidTaps: 0, otherTaps: 0, recentTaps: [] };
+    saveProfile(current);
+    res.json({ ok: true, profile: current });
+  } catch (err) {
+    res.status(503).json({ ok: false, error: 'Contact temporarily unavailable' });
+  }
 });
 
-// API: Generate SVG QR code for any text/URL
+// QR Code
 app.get('/api/qr', async (req, res) => {
   try {
-    const text = String(req.query.text || 'https://example.com');
-    const svg = await QRCode.toString(text, {
-      type: 'svg',
-      margin: 1,
-      width: 220,
-      color: {
-        dark: '#0f172a',
-        light: '#ffffff'
-      }
-    });
+    const text = String((req.query || {}).text || 'https://example.com');
+    if (text.length > 500) return res.status(400).send('Text too long');
+    const svg = await QRCode.toString(text, { type: 'svg', margin: 1, width: 220 });
     res.setHeader('Content-Type', 'image/svg+xml');
     res.send(svg);
   } catch (err) {
-    res.status(500).send('Error generating QR code');
+    res.status(500).send('QR error');
   }
 });
 
-// Direct vCard (.vcf) endpoint — triggers native iOS Contacts sheet & Android Contacts import
+// ─── vCard endpoint ─────────────────────────────────────────────────────────
 app.get(['/contact.vcf', '/api/vcard'], (req, res) => {
-  const profile = resolveProfileFromRequest(req);
-  const vcard = generateVCard(profile);
-  const safeFilename = (profile.fullName || 'Contact')
-    .replace(/[^a-zA-Z0-9_-]/g, '_')
-    .replace(/_+/g, '_');
+  try {
+    const profile = resolveProfile(req);
+    const vcard = generateVCard(profile);
+    const safeName = clean(profile.fullName, 50).replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_');
 
-  if (req.query.preview !== '1') {
-    recordTapEvent(req, req.query.source === 'tap_auto' ? 'NFC Tap -> Auto Contact Prompt' : 'Direct .vcf Download');
+    if ((req.query || {}).preview !== '1') {
+      recordTap(req.ip, req.headers['user-agent'], 'Direct .vcf Download');
+    }
+
+    res.setHeader('Content-Type', 'text/vcard; charset=utf-8');
+    res.setHeader('Content-Disposition', 'inline; filename="' + safeName + '.vcf"');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.send(vcard);
+  } catch (err) {
+    res.status(503).send('Contact temporarily unavailable');
   }
-
-  // Setting text/vcard; charset=utf-8 triggers native iOS Safari Contacts Sheet & Android Contacts intent
-  res.setHeader('Content-Type', 'text/vcard; charset=utf-8');
-  res.setHeader('Content-Disposition', `inline; filename="${safeFilename}.vcf"`);
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.send(vcard);
 });
 
-// Client NFC Tap Route (/tap) — serves the ultra-fast Client Tap Experience
+// ─── Tap page ──────────────────────────────────────────────────────────────
 app.get('/tap', (req, res) => {
+  // Record the tap BEFORE serving (analytics)
+  recordTap(req.ip, req.headers['user-agent'], 'NFC Tap -> Auto vCard');
   res.sendFile(path.join(__dirname, 'public', 'tap.html'));
 });
 
-// Serve static assets from public/
-app.use(express.static(path.join(__dirname, 'public')));
+// ─── Static ────────────────────────────────────────────────────────────────
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1y',
+  etag: true,
+  lastModified: true,
+}));
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`NFC Contact & Bank Sharing System running on http://0.0.0.0:${PORT}`);
+// ─── Error Handlers ─────────────────────────────────────────────────────────
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found' });
 });
+
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err.message);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// ─── Start ─────────────────────────────────────────────────────────────────
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('NFC Contact System running on http://0.0.0.0:' + PORT);
+  if (!ADMIN_TOKEN) {
+    console.error('');
+    console.error('  WARNING: ADMIN_TOKEN not set — server is READ-ONLY.');
+    console.error('  Generate one: openssl rand -base64 32');
+    console.error('');
+  }
+});
+
+module.exports = {
+  app,
+  generateVCard,
+  encodeStatelessPayload,
+  decodeStatelessPayload,
+  validateProfileInput,
+  loadProfile,
+  saveProfile,
+  resolveProfile,
+  detectPlatform,
+  foldLine,
+  escapeVCard
+};

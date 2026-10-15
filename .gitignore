@@ -4,3 +4,4 @@ node_modules/
 .DS_Store
 *.log
 nfc-keychain-contact-system.zip
+data/.signing_secret

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Save Contact &amp; Bank Details</title>
   <style>
     :root {
@@ -374,97 +374,13 @@
     </div>
 
     <div class="footer-link">
-      Powered by NFC Instant Contact &bull; <a href="./index.html">Open NFC Keychain Studio</a>
+      Powered by NFC Instant Contact
     </div>
   </div>
 
   <script>
     (function () {
-      const DEFAULT_PROFILE = {
-        fullName: 'Jean-Luc Morel',
-        jobTitle: 'Senior Consultant & Principal Advisor',
-        company: 'Morel Advisory Partners',
-        phone: '+230 5728 9400',
-        email: 'jl.morel@moreladvisory.com',
-        bankName: 'Mauritius Commercial Bank (MCB)',
-        accountHolder: 'Jean-Luc Morel',
-        accountNumber: '000448291038',
-        includeCustomBankField: true
-      };
-
-      let activeProfile = Object.assign({}, DEFAULT_PROFILE);
-
-      function escapeVCard(str) {
-        return String(str || '')
-          .replace(/\\/g, '\\\\')
-          .replace(/\r?\n/g, '\\n')
-          .replace(/;/g, '\\;')
-          .replace(/,/g, '\\,');
-      }
-
-      function splitName(fullName) {
-        const trimmed = String(fullName || '').trim();
-        if (!trimmed) return { firstName: 'Professional', lastName: '' };
-        const parts = trimmed.split(/\s+/);
-        if (parts.length === 1) return { firstName: parts[0], lastName: '' };
-        const lastName = parts.pop();
-        return { firstName: parts.join(' '), lastName };
-      }
-
-      function buildVCardString(p) {
-        const fullName = (p.fullName || '').trim() || 'Contact';
-        const { firstName, lastName } = splitName(fullName);
-        const lines = [
-          'BEGIN:VCARD',
-          'VERSION:3.0',
-          `N;CHARSET=UTF-8:${escapeVCard(lastName)};${escapeVCard(firstName)};;;`,
-          `FN;CHARSET=UTF-8:${escapeVCard(fullName)}`
-        ];
-        if (p.company) lines.push(`ORG;CHARSET=UTF-8:${escapeVCard(p.company)}`);
-        if (p.jobTitle) lines.push(`TITLE;CHARSET=UTF-8:${escapeVCard(p.jobTitle)}`);
-        if (p.phone) lines.push(`TEL;TYPE=CELL,VOICE,PREF:${p.phone.trim()}`);
-        if (p.email) lines.push(`EMAIL;TYPE=PREF,INTERNET:${p.email.trim()}`);
-
-        const noteParts = [];
-        if (p.bankName || p.accountNumber || p.accountHolder) {
-          noteParts.push('=== BANK ACCOUNT DETAILS ===');
-          if (p.bankName) noteParts.push(`Bank Name: ${p.bankName}`);
-          if (p.accountHolder || fullName) noteParts.push(`Account Holder: ${p.accountHolder || fullName}`);
-          if (p.accountNumber) noteParts.push(`Account Number: ${p.accountNumber}`);
-        }
-        if (noteParts.length > 0) {
-          lines.push(`NOTE;CHARSET=UTF-8:${escapeVCard(noteParts.join('\n'))}`);
-        }
-        if (p.includeCustomBankField !== false && p.accountNumber) {
-          const lbl = p.bankName ? `Bank (${p.bankName})` : 'Bank Account No';
-          lines.push(`item1.X-ABICQ;CHARSET=UTF-8:${escapeVCard(p.accountNumber)}`);
-          lines.push(`item1.X-ABLabel;CHARSET=UTF-8:${escapeVCard(lbl)}`);
-        }
-        lines.push('END:VCARD');
-        return lines.join('\r\n') + '\r\n';
-      }
-
-      function triggerVCardDownload(p) {
-        const vcard = buildVCardString(p);
-        const safeName = ((p.fullName || 'Contact').replace(/[^a-zA-Z0-9_-]/g, '_') || 'Contact') + '.vcf';
-        const dataUri = 'data:text/vcard;charset=utf-8,' + encodeURIComponent(vcard);
-
-        const a = document.createElement('a');
-        a.href = dataUri;
-        a.download = safeName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-
-      function decodeBase64Url(str) {
-        const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
-        const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
-        const bin = atob(b64 + pad);
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        return new TextDecoder().decode(bytes);
-      }
+      let activeProfile = null;
 
       function getInitials(name) {
         const parts = String(name || 'C').trim().split(/\s+/);
@@ -473,25 +389,33 @@
       }
 
       function populateUI(p) {
-        activeProfile = Object.assign({}, DEFAULT_PROFILE, p);
-        const fullName = activeProfile.fullName || 'Professional Contact';
+        activeProfile = p;
+        const fullName = p.fullName || 'Professional Contact';
         document.getElementById('dispName').textContent = fullName;
         document.getElementById('avatarInitials').textContent = getInitials(fullName);
 
-        const roleParts = [activeProfile.jobTitle, activeProfile.company].filter(Boolean);
+        const roleParts = [p.jobTitle, p.company].filter(Boolean);
         document.getElementById('dispRole').textContent = roleParts.join(' • ') || 'Professional Contact';
 
-        document.getElementById('dispPhone').textContent = activeProfile.phone || '—';
-        document.getElementById('linkPhone').href = activeProfile.phone
-          ? `tel:${activeProfile.phone.replace(/\s+/g, '')}`
+        document.getElementById('dispPhone').textContent = p.phone || '—';
+        document.getElementById('linkPhone').href = p.phone
+          ? `tel:${p.phone.replace(/\s+/g, '')}`
           : '#';
 
-        document.getElementById('dispEmail').textContent = activeProfile.email || '—';
-        document.getElementById('linkEmail').href = activeProfile.email ? `mailto:${activeProfile.email}` : '#';
+        document.getElementById('dispEmail').textContent = p.email || '—';
+        document.getElementById('linkEmail').href = p.email ? `mailto:${p.email}` : '#';
 
-        document.getElementById('dispBankName').textContent = activeProfile.bankName || '—';
-        document.getElementById('dispAccountHolder').textContent = activeProfile.accountHolder || fullName;
-        document.getElementById('dispAccountNumber').textContent = activeProfile.accountNumber || '—';
+        document.getElementById('dispBankName').textContent = p.bankName || '—';
+        document.getElementById('dispAccountHolder').textContent = p.accountHolder || fullName;
+        document.getElementById('dispAccountNumber').textContent = p.accountNumber || '—';
+      }
+
+      function showUnavailable() {
+        document.getElementById('dispName').textContent = 'Contact Unavailable';
+        document.getElementById('dispRole').textContent = 'Please try again later';
+        document.getElementById('promptBannerText').innerHTML =
+          '<strong>Contact temporarily unavailable.</strong> Please try again in a moment.';
+        document.getElementById('btnSaveVcf').style.display = 'none';
       }
 
       function copyText(text, labelId, btnEl, defaultText) {
@@ -522,66 +446,43 @@
       }
 
       document.getElementById('btnCopyAcct').onclick = function () {
-        copyText(activeProfile.accountNumber || '', 'copyAcctLabel', this, 'Copy Account #');
+        if (activeProfile) copyText(activeProfile.accountNumber || '', 'copyAcctLabel', this, 'Copy Account #');
       };
 
       document.getElementById('btnCopyAllBank').onclick = function () {
+        if (!activeProfile) return;
         const summary = `Bank: ${activeProfile.bankName || ''}\nAccount Holder: ${activeProfile.accountHolder || activeProfile.fullName}\nAccount Number: ${activeProfile.accountNumber || ''}`;
         copyText(summary, 'copyAllBankLabel', this, 'Copy All Bank Info');
       };
 
+      // Save button: navigate to server's /contact.vcf (proper text/vcard headers)
       document.getElementById('btnSaveVcf').onclick = function () {
-        triggerVCardDownload(activeProfile);
+        window.location.href = '/contact.vcf?source=tap';
       };
 
-      // 1. Check URL query parameter ?d= (Stateless URL mode — works on GitHub Pages & everywhere)
+      // Fetch profile from server — render ONLY after response (fail closed)
       const params = new URLSearchParams(window.location.search);
-      const statelessD = params.get('d');
       const noAuto = params.get('noauto') === '1';
 
-      if (statelessD) {
-        try {
-          const d = JSON.parse(decodeBase64Url(statelessD));
-          populateUI({
-            fullName: d.fn || d.fullName,
-            jobTitle: d.jt || d.jobTitle,
-            company: d.co || d.company,
-            phone: d.ph || d.phone,
-            email: d.em || d.email,
-            bankName: d.bn || d.bankName,
-            accountHolder: d.ah || d.accountHolder,
-            accountNumber: d.an || d.accountNumber,
-            includeCustomBankField: d.cb !== undefined ? Boolean(d.cb) : true
-          });
-        } catch (err) {
-          console.warn('Could not decode ?d= parameter:', err);
-        }
-      } else {
-        // 2. Check localStorage fallback
-        try {
-          const saved = localStorage.getItem('nfc_studio_profile_v1');
-          if (saved) populateUI(JSON.parse(saved));
-        } catch (e) {}
-      }
-
-      // 3. Also check /api/profile if running on Node backend
-      if (!statelessD && window.location.protocol.startsWith('http')) {
-        fetch('/api/profile')
-          .then(r => (r.ok ? r.json() : null))
+      if (window.location.protocol.startsWith('http')) {
+        fetch('/api/profile', { cache: 'no-store' })
+          .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
           .then(data => {
-            if (data && data.profile) populateUI(data.profile);
+            if (data && data.profile) {
+              populateUI(data.profile);
+              // Auto-trigger: navigate to /contact.vcf (server sets text/vcard headers)
+              if (!noAuto) {
+                setTimeout(() => {
+                  window.location.href = '/contact.vcf?source=tap';
+                }, 300);
+              }
+            } else {
+              showUnavailable();
+            }
           })
-          .catch(() => {});
-      }
-
-      // 4. Auto-trigger native "Add to Contacts" sheet on load
-      if (!noAuto) {
-        setTimeout(() => {
-          triggerVCardDownload(activeProfile);
-        }, 200);
+          .catch(() => showUnavailable());
       } else {
-        document.getElementById('promptBannerText').innerHTML =
-          '<strong>Preview Mode:</strong> Tap "Save to Phone Contacts (.vcf)" below to test the native contact sheet.';
+        showUnavailable();
       }
     })();
   </script>

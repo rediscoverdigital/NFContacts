@@ -2,37 +2,98 @@
   "fullName": "Jean-Luc Morel",
   "firstName": "Jean-Luc",
   "lastName": "Morel",
-  "jobTitle": "Senior Consultant & Principal Advisor",
-  "company": "Morel Advisory Partners",
+  "jobTitle": "",
+  "company": "",
   "phone": "+230 5728 9400",
   "email": "jl.morel@moreladvisory.com",
   "website": "",
   "bankName": "Mauritius Commercial Bank (MCB)",
   "accountHolder": "Jean-Luc Morel",
   "accountNumber": "000448291038",
-  "tapMode": "auto_prompt_with_fallback",
+  "includeBankDetails": true,
   "includeCustomBankField": true,
-  "updatedAt": "2026-10-14T10:00:00.000Z",
+  "tapMode": "auto_prompt_with_fallback",
+  "updatedAt": "2026-10-15T19:39:56.061Z",
   "analytics": {
-    "totalTaps": 3,
+    "totalTaps": 20,
     "iosTaps": 2,
     "androidTaps": 1,
-    "otherTaps": 0,
+    "otherTaps": 17,
     "recentTaps": [
       {
-        "timestamp": "2026-10-14T09:42:10.000Z",
-        "platform": "iOS (iPhone)",
-        "mode": "NFC Tap -> Auto vCard"
+        "ts": "2026-10-15T19:42:03.985Z",
+        "p": "Other",
+        "m": "NFC Tap -> Auto vCard"
       },
       {
-        "timestamp": "2026-10-14T09:15:22.000Z",
-        "platform": "Android",
-        "mode": "NFC Tap -> Auto vCard"
+        "ts": "2026-10-15T19:42:03.968Z",
+        "p": "Other",
+        "m": "Direct .vcf Download"
       },
       {
-        "timestamp": "2026-10-13T16:30:05.000Z",
-        "platform": "iOS (iPhone)",
-        "mode": "NFC Tap -> Auto vCard"
+        "ts": "2026-10-15T19:40:29.840Z",
+        "p": "Other",
+        "m": "Direct .vcf Download"
+      },
+      {
+        "ts": "2026-10-15T19:40:29.825Z",
+        "p": "Other",
+        "m": "Direct .vcf Download"
+      },
+      {
+        "ts": "2026-10-15T19:39:56.074Z",
+        "p": "Other",
+        "m": "NFC Tap -> Auto vCard"
+      },
+      {
+        "ts": "2026-10-15T19:39:56.073Z",
+        "p": "Other",
+        "m": "Direct .vcf Download"
+      },
+      {
+        "ts": "2026-10-15T19:39:56.071Z",
+        "p": "Other",
+        "m": "Direct .vcf Download"
+      },
+      {
+        "ts": "2026-10-15T19:39:56.065Z",
+        "p": "Other",
+        "m": "Direct .vcf Download"
+      },
+      {
+        "timestamp": "2026-10-15T19:33:02.894Z",
+        "platform": "Desktop / Other",
+        "mode": "Direct .vcf Download"
+      },
+      {
+        "timestamp": "2026-10-15T19:32:46.062Z",
+        "platform": "Desktop / Other",
+        "mode": "Direct .vcf Download"
+      },
+      {
+        "timestamp": "2026-10-15T19:32:46.059Z",
+        "platform": "Desktop / Other",
+        "mode": "Direct .vcf Download"
+      },
+      {
+        "timestamp": "2026-10-15T19:32:46.056Z",
+        "platform": "Desktop / Other",
+        "mode": "Direct .vcf Download"
+      },
+      {
+        "timestamp": "2026-10-15T19:31:27.809Z",
+        "platform": "Desktop / Other",
+        "mode": "Direct .vcf Download"
+      },
+      {
+        "timestamp": "2026-10-15T19:31:27.807Z",
+        "platform": "Desktop / Other",
+        "mode": "Direct .vcf Download"
+      },
+      {
+        "timestamp": "2026-10-15T19:31:27.804Z",
+        "platform": "Desktop / Other",
+        "mode": "Direct .vcf Download"
       }
     ]
   }

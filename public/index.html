@@ -713,6 +713,19 @@
   </style>
 </head>
 <body>
+  <!-- Auth Overlay -->
+  <div id="authOverlay" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.85);z-index:100;align-items:center;justify-content:center;">
+    <div style="background:#111827;border:1px solid rgba(255,255,255,0.1);border-radius:18px;padding:32px;width:90%;max-width:360px;">
+      <h2 style="font-size:18px;font-weight:700;color:#fff;margin-bottom:4px;">Studio Authentication</h2>
+      <p style="font-size:13px;color:#94a3b8;margin-bottom:16px;">Enter your admin token to edit the contact & bank profile.</p>
+      <form id="authForm" style="display:flex;flex-direction:column;gap:12px;">
+        <input type="password" id="authPassword" placeholder="Admin Token" style="background:#090e1a;border:1px solid rgba(255,255,255,0.14);border-radius:10px;padding:10px 13px;color:#fff;font-size:14px;outline:none;" required />
+        <div id="authError" style="display:none;color:#fb6b6b;font-size:12px;text-align:center;">Invalid token.</div>
+        <button type="submit" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:12px;padding:12px;font-weight:700;cursor:pointer;">Unlock Studio</button>
+      </form>
+    </div>
+  </div>
+
   <!-- Header -->
   <header class="topbar">
     <div class="topbar-inner">
@@ -1415,13 +1428,56 @@
         }
       } catch (e) {}
 
-      // Render immediately on load!
-      renderAll();
+      // ─── Studio Authentication (Admin Token) ───────────────────────────────
+      let isAuthenticated = false;
 
-      // Also sync from Node backend if running
-      if (window.location.protocol.startsWith('http')) {
+      async function checkAuth() {
+        try {
+          const r = await fetch('/api/studio-status');
+          const data = await r.json();
+          if (data.configured) {
+            if (isAuthenticated) return true;
+            // Show auth overlay
+            const authOverlay = document.getElementById('authOverlay');
+            const pwdInput = document.getElementById('authPassword');
+            const authForm = document.getElementById('authForm');
+            const authError = document.getElementById('authError');
+
+            authOverlay.style.display = 'flex';
+            authForm.onsubmit = async function (e) {
+              e.preventDefault();
+              const token = pwdInput.value;
+              try {
+                const resp = await fetch('/api/login', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ token: token })
+                });
+                if (resp.ok) {
+                  isAuthenticated = true;
+                  authOverlay.style.display = 'none';
+                  loadFromServer();
+                } else {
+                  authError.textContent = 'Invalid token.';
+                  authError.style.display = 'block';
+                }
+              } catch (err) {
+                authError.textContent = 'Login failed. Try again.';
+                authError.style.display = 'block';
+              }
+            };
+            return false;
+          }
+          return true; // No admin token configured — allow read-only
+        } catch (err) {
+          return false;
+        }
+      }
+
+      // Load profile from server (used after auth)
+      function loadFromServer() {
         fetch('/api/profile')
-          .then(r => (r.ok ? r.json() : null))
+          .then(r => r.ok ? r.json() : null)
           .then(data => {
             if (data && data.profile) {
               fields.forEach(f => {
@@ -1431,11 +1487,44 @@
               });
               document.getElementById('includeCustomBankField').checked =
                 data.profile.includeCustomBankField !== false;
+              document.getElementById('includeBankDetails').checked =
+                data.profile.includeBankDetails !== false;
+              latestStatelessToken = data.statelessToken || '';
               renderAll();
             }
           })
           .catch(() => {});
       }
+
+      // Render immediately on load!
+      renderAll();
+
+      // Auth gate: check auth, then sync from server
+      checkAuth().then(authenticated => {
+        if (authenticated) {
+          // Also sync from Node backend if running
+          if (window.location.protocol.startsWith('http')) {
+            fetch('/api/profile')
+              .then(r => (r.ok ? r.json() : null))
+              .then(data => {
+                if (data && data.profile) {
+                  fields.forEach(f => {
+                    if (data.profile[f] !== undefined && document.getElementById(f)) {
+                      document.getElementById(f).value = data.profile[f];
+                    }
+                  });
+                  document.getElementById('includeCustomBankField').checked =
+                    data.profile.includeCustomBankField !== false;
+                  document.getElementById('includeBankDetails').checked =
+                    data.profile.includeBankDetails !== false;
+                  latestStatelessToken = data.statelessToken || '';
+                  renderAll();
+                }
+              })
+              .catch(() => {});
+          }
+        }
+      });
 
       // Live updates on any input change
       fields.forEach(f => {
@@ -1455,10 +1544,25 @@
         } catch (err) {}
 
         if (window.location.protocol.startsWith('http')) {
+          const headers = { 'Content-Type': 'application/json' };
+          if (isAuthenticated) headers['Authorization'] = document.getElementById('authPassword').value;
           fetch('/api/profile', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers,
             body: JSON.stringify(payload)
+          }).then(resp => {
+            if (resp.status === 401 || resp.status === 403) {
+              isAuthenticated = false;
+              document.getElementById('authError').textContent = 'Session expired. Please re-authenticate.';
+              document.getElementById('authError').style.display = 'block';
+              document.getElementById('authOverlay').style.display = 'flex';
+              return null;
+            }
+            return resp.json();
+          }).then(data => {
+            if (data && data.statelessToken) {
+              latestStatelessToken = data.statelessToken;
+            }
           }).catch(() => {});
         }
 
