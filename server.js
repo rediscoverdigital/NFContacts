@@ -6,13 +6,80 @@ const QRCode = require('qrcode');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-const DATA_PATH = path.join(__dirname, 'data', 'profile.json');
+// ─── Database: PostgreSQL (production) or file-based (local dev) ───────────
+// When DATABASE_URL is set, uses PostgreSQL. Otherwise falls back to data/profile.json.
+const DATABASE_URL = process.env.DATABASE_URL || null;
+let dbPool = null;
 
-// ─── Security: Admin Token (single-editor model) ─────────────────────────────
-// ADMIN_TOKEN: a long random string (32+ chars). The ONLY credential needed.
-// Set via environment variable. Server refuses to start writes without it.
+if (DATABASE_URL) {
+  try {
+    const { Pool } = require('pg');
+    dbPool = new Pool({
+      connectionString: DATABASE_URL,
+      ssl: process.env.PGSSL === 'false' ? false : { rejectUnauthorized: false },
+      max: 5,
+      idleTimeoutMillis: 30000,
+    });
+    console.log('PostgreSQL connected (DATABASE_URL set)');
+  } catch (err) {
+    console.error('PostgreSQL not available, falling back to file storage:', err.message);
+    dbPool = null;
+  }
+}
+
+// ─── Storage Abstraction ────────────────────────────────────────────────────
+
+async function loadProfile() {
+  if (dbPool) {
+    const result = await dbPool.query(
+      'SELECT json_data FROM client_profiles WHERE id = 1'
+    );
+    if (result.rows.length === 0) throw new Error('No profile configured');
+    return result.rows[0].json_data;
+  }
+  const DATA_PATH = path.join(__dirname, 'data', 'profile.json');
+  if (!fs.existsSync(DATA_PATH)) throw new Error('No profile configured');
+  const raw = fs.readFileSync(DATA_PATH, 'utf8');
+  return JSON.parse(raw);
+}
+
+async function saveProfile(profile) {
+  if (dbPool) {
+    await dbPool.query(
+      `INSERT INTO client_profiles (id, json_data, created_at, updated_at)
+       VALUES (1, $1, NOW(), NOW())
+       ON CONFLICT (id) DO UPDATE
+       SET json_data = $1, updated_at = NOW()`,
+      [JSON.stringify(profile)]
+    );
+    return;
+  }
+  const DATA_PATH = path.join(__dirname, 'data', 'profile.json');
+  const dir = path.dirname(DATA_PATH);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const tmpPath = DATA_PATH + '.tmp';
+  fs.writeFileSync(tmpPath, JSON.stringify(profile, null, 2), { mode: 0o600 });
+  fs.renameSync(tmpPath, DATA_PATH);
+}
+
+async function initDatabase() {
+  if (!dbPool) return;
+  try {
+    await dbPool.query(`
+      CREATE TABLE IF NOT EXISTS client_profiles (
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        json_data JSONB NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `);
+    console.log('Database table ready');
+  } catch (err) {
+    console.error('Database init error:', err.message);
+  }
+}
+
+// ─── Security: Admin Token ──────────────────────────────────────────────────
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || null;
 
 if (!ADMIN_TOKEN || ADMIN_TOKEN.length < 32) {
@@ -22,8 +89,7 @@ if (!ADMIN_TOKEN || ADMIN_TOKEN.length < 32) {
   console.error('');
 }
 
-// ─── Security: HMAC signing key for stateless payloads ──────────────────────
-// Falls back to a file-based secret so deployments without env vars still work.
+// ─── Security: HMAC signing key ─────────────────────────────────────────────
 const SIGNING_SECRET = process.env.SIGNING_SECRET || loadOrCreateSigningSecret();
 
 function loadOrCreateSigningSecret() {
@@ -42,10 +108,11 @@ function loadOrCreateSigningSecret() {
   }
 }
 
-// ─── Middleware ─────────────────────────────────────────────────────────────
-// NOTE: express.urlencoded() is intentionally NOT enabled.
-// Without it, a plain HTML <form> on another site cannot submit JSON to us
-// without triggering a CORS preflight. This blocks classic CSRF.
+// ─── Express App ────────────────────────────────────────────────────────────
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// NOTE: express.urlencoded() is intentionally NOT enabled (CSRF protection)
 app.use(express.json({ limit: '100kb' }));
 
 // Helmet security headers
@@ -65,7 +132,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// Additional security headers not fully covered by Helmet
+// Additional security headers
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
@@ -107,33 +174,12 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// ─── Profile I/O (fail closed — no demo data) ──────────────────────────────
-
-function loadProfile() {
-  if (!fs.existsSync(DATA_PATH)) {
-    throw new Error('No profile configured');
-  }
-  const raw = fs.readFileSync(DATA_PATH, 'utf8');
-  return JSON.parse(raw);
-}
-
-function saveProfile(profile) {
-  const dir = path.dirname(DATA_PATH);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  // Atomic write: temp file + rename
-  const tmpPath = DATA_PATH + '.tmp';
-  fs.writeFileSync(tmpPath, JSON.stringify(profile, null, 2), { mode: 0o600 });
-  fs.renameSync(tmpPath, DATA_PATH);
-}
-
 // ─── Input Validation ───────────────────────────────────────────────────────
-const MAX_FIELD_LENGTH = 120; // Per M5 recommendation
+const MAX_FIELD_LENGTH = 120;
 
 function clean(str, max = MAX_FIELD_LENGTH) {
   return String(str || '')
-    .replace(/[\u0000-\u001F\u007F]/g, ' ') // strip control chars
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
     .trim()
     .slice(0, max);
 }
@@ -201,7 +247,6 @@ function escapeVCard(s) {
     .replace(/,/g, ',');
 }
 
-// RFC 2426 line folding: lines must not exceed 75 octets
 function foldLine(line) {
   const limit = 75;
   let out = '';
@@ -243,7 +288,6 @@ function generateVCard(profile) {
   const accountNumber = clean(profile.accountNumber, 50);
   const includeBankDetails = profile.includeBankDetails !== false;
 
-  // vCard 3.0 — no CHARSET parameter (that's vCard 2.1)
   const lines = [
     'BEGIN:VCARD',
     'VERSION:3.0',
@@ -268,7 +312,6 @@ function generateVCard(profile) {
   lines.push('REV:' + new Date().toISOString());
   lines.push('END:VCARD');
 
-  // Fold all lines to 75 octets per RFC 2426, join with CRLF
   return lines.map(foldLine).join('\r\n') + '\r\n';
 }
 
@@ -332,14 +375,10 @@ function decodeStatelessPayload(token) {
   }
 }
 
-function resolveProfile(req) {
-  // Reject unsigned/invalid tokens outright — never fall back to stored profile
-  // when a token was provided but is invalid (could be an attack)
+async function resolveProfile(req) {
   if (req.query.d) {
     const result = decodeStatelessPayload(req.query.d);
     if (result.verified) return result.profile;
-    // Invalid token with ?d= → serve stored profile (the token was signed by us
-    // but may be expired; serving stored profile is safe since it's our data)
   }
   return loadProfile();
 }
@@ -356,9 +395,9 @@ function detectPlatform(ua) {
 
 // ─── Analytics ──────────────────────────────────────────────────────────────
 
-function recordTap(clientIp, userAgent, modeLabel) {
+async function recordTap(userAgent, modeLabel) {
   try {
-    const profile = loadProfile();
+    const profile = await loadProfile();
     if (!profile.analytics) {
       profile.analytics = { totalTaps: 0, iosTaps: 0, androidTaps: 0, otherTaps: 0, recentTaps: [] };
     }
@@ -372,7 +411,7 @@ function recordTap(clientIp, userAgent, modeLabel) {
       { ts: new Date().toISOString(), p: platform, m: modeLabel },
       ...(profile.analytics.recentTaps || []).slice(0, 14)
     ];
-    saveProfile(profile);
+    await saveProfile(profile);
   } catch (err) {
     console.error('Analytics error:', err.message);
   }
@@ -387,6 +426,7 @@ app.get('/health', (req, res) => {
 app.get('/api/studio-status', (req, res) => {
   res.json({
     configured: !!ADMIN_TOKEN,
+    storage: dbPool ? 'postgresql' : 'file',
     message: ADMIN_TOKEN ? 'Admin token configured' : 'Set ADMIN_TOKEN env var to enable editing'
   });
 });
@@ -403,10 +443,10 @@ app.post('/api/login', (req, res) => {
   res.json({ ok: true });
 });
 
-// Public read-only: returns profile + vCard + signed token
-app.get('/api/profile', (req, res) => {
+// Public read-only
+app.get('/api/profile', async (req, res) => {
   try {
-    const profile = loadProfile();
+    const profile = await loadProfile();
     res.json({
       profile,
       vcard: generateVCard(profile),
@@ -417,11 +457,11 @@ app.get('/api/profile', (req, res) => {
   }
 });
 
-// Protected: save profile (admin only)
-app.post('/api/profile', requireAdmin, (req, res) => {
+// Protected: save profile
+app.post('/api/profile', requireAdmin, async (req, res) => {
   let current;
   try {
-    current = loadProfile();
+    current = await loadProfile();
   } catch (err) {
     return res.status(503).json({ ok: false, error: 'No profile exists yet' });
   }
@@ -451,7 +491,7 @@ app.post('/api/profile', requireAdmin, (req, res) => {
     updatedAt: new Date().toISOString()
   };
 
-  saveProfile(updated);
+  await saveProfile(updated);
   res.json({
     ok: true,
     profile: updated,
@@ -461,11 +501,11 @@ app.post('/api/profile', requireAdmin, (req, res) => {
 });
 
 // Protected: reset stats
-app.post('/api/reset-stats', requireAdmin, (req, res) => {
+app.post('/api/reset-stats', requireAdmin, async (req, res) => {
   try {
-    const current = loadProfile();
+    const current = await loadProfile();
     current.analytics = { totalTaps: 0, iosTaps: 0, androidTaps: 0, otherTaps: 0, recentTaps: [] };
-    saveProfile(current);
+    await saveProfile(current);
     res.json({ ok: true, profile: current });
   } catch (err) {
     res.status(503).json({ ok: false, error: 'Contact temporarily unavailable' });
@@ -486,14 +526,14 @@ app.get('/api/qr', async (req, res) => {
 });
 
 // ─── vCard endpoint ─────────────────────────────────────────────────────────
-app.get(['/contact.vcf', '/api/vcard'], (req, res) => {
+app.get(['/contact.vcf', '/api/vcard'], async (req, res) => {
   try {
-    const profile = resolveProfile(req);
+    const profile = await resolveProfile(req);
     const vcard = generateVCard(profile);
     const safeName = clean(profile.fullName, 50).replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_');
 
     if ((req.query || {}).preview !== '1') {
-      recordTap(req.ip, req.headers['user-agent'], 'Direct .vcf Download');
+      await recordTap(req.headers['user-agent'], 'Direct .vcf Download');
     }
 
     res.setHeader('Content-Type', 'text/vcard; charset=utf-8');
@@ -507,9 +547,8 @@ app.get(['/contact.vcf', '/api/vcard'], (req, res) => {
 });
 
 // ─── Tap page ──────────────────────────────────────────────────────────────
-app.get('/tap', (req, res) => {
-  // Record the tap BEFORE serving (analytics)
-  recordTap(req.ip, req.headers['user-agent'], 'NFC Tap -> Auto vCard');
+app.get('/tap', async (req, res) => {
+  await recordTap(req.headers['user-agent'], 'NFC Tap -> Auto vCard');
   res.sendFile(path.join(__dirname, 'public', 'tap.html'));
 });
 
@@ -531,14 +570,23 @@ app.use((err, req, res, next) => {
 });
 
 // ─── Start ─────────────────────────────────────────────────────────────────
-app.listen(PORT, '0.0.0.0', () => {
-  console.log('NFC Contact System running on http://0.0.0.0:' + PORT);
-  if (!ADMIN_TOKEN) {
-    console.error('');
-    console.error('  WARNING: ADMIN_TOKEN not set — server is READ-ONLY.');
-    console.error('  Generate one: openssl rand -base64 32');
-    console.error('');
-  }
+async function start() {
+  await initDatabase();
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log('NFC Contact System running on http://0.0.0.0:' + PORT);
+    console.log('Storage: ' + (dbPool ? 'PostgreSQL' : 'file-based'));
+    if (!ADMIN_TOKEN) {
+      console.error('');
+      console.error('  WARNING: ADMIN_TOKEN not set — server is READ-ONLY.');
+      console.error('  Generate one: openssl rand -base64 32');
+      console.error('');
+    }
+  });
+}
+
+start().catch(err => {
+  console.error('Failed to start:', err);
+  process.exit(1);
 });
 
 module.exports = {

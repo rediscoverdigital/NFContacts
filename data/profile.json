@@ -13,13 +13,38 @@
   "includeBankDetails": true,
   "includeCustomBankField": true,
   "tapMode": "auto_prompt_with_fallback",
-  "updatedAt": "2026-10-15T19:39:56.061Z",
+  "updatedAt": "2026-10-15T20:23:19.904Z",
   "analytics": {
-    "totalTaps": 20,
+    "totalTaps": 25,
     "iosTaps": 2,
     "androidTaps": 1,
-    "otherTaps": 17,
+    "otherTaps": 22,
     "recentTaps": [
+      {
+        "ts": "2026-10-15T20:23:19.916Z",
+        "p": "Other",
+        "m": "Direct .vcf Download"
+      },
+      {
+        "ts": "2026-10-15T20:23:19.909Z",
+        "p": "Other",
+        "m": "Direct .vcf Download"
+      },
+      {
+        "ts": "2026-10-15T20:04:59.404Z",
+        "p": "Other",
+        "m": "NFC Tap -> Auto vCard"
+      },
+      {
+        "ts": "2026-10-15T20:04:59.403Z",
+        "p": "Other",
+        "m": "Direct .vcf Download"
+      },
+      {
+        "ts": "2026-10-15T20:04:59.398Z",
+        "p": "Other",
+        "m": "Direct .vcf Download"
+      },
       {
         "ts": "2026-10-15T19:42:03.985Z",
         "p": "Other",
@@ -67,31 +92,6 @@
       },
       {
         "timestamp": "2026-10-15T19:32:46.062Z",
-        "platform": "Desktop / Other",
-        "mode": "Direct .vcf Download"
-      },
-      {
-        "timestamp": "2026-10-15T19:32:46.059Z",
-        "platform": "Desktop / Other",
-        "mode": "Direct .vcf Download"
-      },
-      {
-        "timestamp": "2026-10-15T19:32:46.056Z",
-        "platform": "Desktop / Other",
-        "mode": "Direct .vcf Download"
-      },
-      {
-        "timestamp": "2026-10-15T19:31:27.809Z",
-        "platform": "Desktop / Other",
-        "mode": "Direct .vcf Download"
-      },
-      {
-        "timestamp": "2026-10-15T19:31:27.807Z",
-        "platform": "Desktop / Other",
-        "mode": "Direct .vcf Download"
-      },
-      {
-        "timestamp": "2026-10-15T19:31:27.804Z",
         "platform": "Desktop / Other",
         "mode": "Direct .vcf Download"
       }
