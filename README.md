@@ -96,4 +96,29 @@ Render's free tier spins down after 15 minutes of inactivity. **Local file stora
 |----------|----------|---------|-------------|
 | `ADMIN_TOKEN` | ✅ Yes | — | Admin authentication token (32+ chars). Server runs read-only without it. |
 | `SIGNING_SECRET` | ✅ Yes | — | HMAC signing key for stateless URL tokens. |
+| `DATABASE_URL` | No | — | PostgreSQL connection string. When set, uses Postgres; otherwise falls back to `data/profile.json`. |
 | `PORT` | No | `3000` | Server port |
+
+### PostgreSQL Setup (Production)
+
+When `DATABASE_URL` is set (e.g., on Railway, Render, Supabase), the server automatically:
+
+1. Creates the `client_profiles` table on first startup
+2. Stores all profile data as JSONB in PostgreSQL
+3. Survives restarts, redeployments, and idle periods
+
+**Railway deployment:**
+1. Connect GitHub repo → Railway auto-detects Node.js
+2. Add PostgreSQL plugin → `DATABASE_URL` is auto-set
+3. Set `ADMIN_TOKEN` and `SIGNING_SECRET` env vars
+4. Deploy — data persists forever
+
+**Table schema (auto-created):**
+```sql
+CREATE TABLE client_profiles (
+  id INTEGER PRIMARY KEY DEFAULT 1,
+  json_data JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
